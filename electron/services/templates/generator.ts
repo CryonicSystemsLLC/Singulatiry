@@ -1,0 +1,387 @@
+/**
+ * Template Generator
+ *
+ * Scaffolds projects from stack templates.
+ */
+
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+import { flattenStructure } from './stacks';
+import type { StackConfig } from '../agent/types';
+
+const execAsync = promisify(exec);
+
+export interface GenerateOptions {
+  projectName: string;
+  projectPath: string;
+  stack: StackConfig;
+  variables?: Record<string, string>;
+  features?: string[];
+  databaseUrl?: string;
+}
+
+export interface GenerateResult {
+  success: boolean;
+  projectPath: string;
+  filesCreated: string[];
+  errors?: string[];
+}
+
+/**
+ * Template variable replacement
+ */
+function replaceVariables(content: string, variables: Record<string, string>): string {
+  let result = content;
+  for (const [key, value] of Object.entries(variables)) {
+    result = result.replace(new RegExp(`{{${key}}}`, 'g'), value);
+  }
+  return result;
+}
+
+/**
+ * Generate a project from a stack template
+ */
+export async function generateProject(options: GenerateOptions): Promise<GenerateResult> {
+  const {
+    projectName,
+    projectPath,
+    stack,
+    variables = {},
+    features = [],
+    databaseUrl
+  } = options;
+
+  const fullPath = path.join(projectPath, projectName);
+  const filesCreated: string[] = [];
+  const errors: string[] = [];
+
+  // Merge default variables
+  const vars: Record<string, string> = {
+    projectName,
+    ...variables
+  };
+
+  try {
+    // Create project directory
+    await mkdir(fullPath, { recursive: true });
+
+    // Create folder structure
+    const flatStructure = flattenStructure(stack.structure);
+
+    for (const [filePath] of Object.entries(flatStructure)) {
+      const fullFilePath = path.join(fullPath, filePath);
+      const dir = path.dirname(fullFilePath);
+
+      // Create directory
+      await mkdir(dir, { recursive: true });
+
+      // Check if we have a template for this file
+      const templateKey = filePath.replace(/\\/g, '/');
+      if (stack.templates && stack.templates[templateKey]) {
+        const content = replaceVariables(stack.templates[templateKey], vars);
+        await writeFile(fullFilePath, content);
+        filesCreated.push(filePath);
+      } else if (filePath.includes('.')) {
+        // It's a file, create empty or with placeholder
+        const content = getDefaultContent(filePath, stack, vars, features);
+        if (content) {
+          await writeFile(fullFilePath, content);
+          filesCreated.push(filePath);
+        }
+      }
+    }
+
+    // Create .env file if database URL provided
+    if (databaseUrl) {
+      const envContent = `DATABASE_URL="${databaseUrl}"\nNEXTAUTH_SECRET="change-me-in-production"\nNEXTAUTH_URL="http://localhost:${stack.ports.dev}"`;
+      await writeFile(path.join(fullPath, '.env'), envContent);
+      filesCreated.push('.env');
+    }
+
+    // Create .gitignore
+    const gitignoreContent = `node_modules/
+.next/
+dist/
+build/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+`;
+    await writeFile(path.join(fullPath, '.gitignore'), gitignoreContent);
+    filesCreated.push('.gitignore');
+
+    return {
+      success: true,
+      projectPath: fullPath,
+      filesCreated
+    };
+  } catch (error: any) {
+    errors.push(error.message);
+    return {
+      success: false,
+      projectPath: fullPath,
+      filesCreated,
+      errors
+    };
+  }
+}
+
+/**
+ * Get default content for a file based on its path
+ */
+function getDefaultContent(
+  filePath: string,
+  stack: StackConfig,
+  vars: Record<string, string>,
+  features: string[]
+): string | null {
+  const fileName = path.basename(filePath);
+
+  // Next.js specific files
+  if (stack.frontend.framework === 'next') {
+    if (filePath.includes('layout.tsx')) {
+      return getNextLayoutContent(vars, features);
+    }
+    if (filePath.includes('page.tsx') && filePath.includes('app/')) {
+      return getNextPageContent(vars);
+    }
+    if (filePath.includes('globals.css')) {
+      return getGlobalsCssContent(features);
+    }
+    if (fileName === 'next.config.js') {
+      return getNextConfigContent();
+    }
+    if (fileName === 'tsconfig.json') {
+      return getTsConfigContent();
+    }
+    if (fileName === 'tailwind.config.ts') {
+      return getTailwindConfigContent();
+    }
+  }
+
+  // Prisma
+  if (filePath.includes('lib/prisma.ts')) {
+    return getPrismaClientContent();
+  }
+
+  return null;
+}
+
+function getNextLayoutContent(vars: Record<string, string>, features: string[]): string {
+  const hasAuth = features.includes('auth');
+
+  return `import type { Metadata } from 'next'
+import { Inter } from 'next/font/google'
+import './globals.css'
+${hasAuth ? "import { SessionProvider } from 'next-auth/react'" : ''}
+
+const inter = Inter({ subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: '${vars.projectName}',
+  description: 'Generated by Singularity IDE',
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.className}>
+        ${hasAuth ? '<SessionProvider>' : ''}
+        {children}
+        ${hasAuth ? '</SessionProvider>' : ''}
+      </body>
+    </html>
+  )
+}
+`;
+}
+
+function getNextPageContent(vars: Record<string, string>): string {
+  return `export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold mb-4">
+        Welcome to ${vars.projectName}
+      </h1>
+      <p className="text-gray-500">
+        Get started by editing <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">app/page.tsx</code>
+      </p>
+    </main>
+  )
+}
+`;
+}
+
+function getGlobalsCssContent(features: string[]): string {
+  const hasTailwind = features.includes('tailwind');
+
+  if (hasTailwind) {
+    return `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgb(var(--background-end-rgb))
+  )
+  rgb(var(--background-start-rgb));
+}
+`;
+  }
+
+  return `* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+`;
+}
+
+function getNextConfigContent(): string {
+  return `/** @type {import('next').NextConfig} */
+const nextConfig = {
+  reactStrictMode: true,
+}
+
+module.exports = nextConfig
+`;
+}
+
+function getTsConfigContent(): string {
+  return `{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+`;
+}
+
+function getTailwindConfigContent(): string {
+  return `import type { Config } from 'tailwindcss'
+
+const config: Config = {
+  content: [
+    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  theme: {
+    extend: {},
+  },
+  plugins: [],
+}
+export default config
+`;
+}
+
+function getPrismaClientContent(): string {
+  return `import { PrismaClient } from '@prisma/client'
+
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined
+}
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+
+export default prisma
+`;
+}
+
+/**
+ * Install dependencies for a project
+ */
+export async function installDependencies(
+  projectPath: string,
+  stack: StackConfig
+): Promise<{ success: boolean; output: string; error?: string }> {
+  try {
+    const { stdout, stderr } = await execAsync(stack.commands.install, {
+      cwd: projectPath,
+      timeout: 300000 // 5 minutes
+    });
+
+    return {
+      success: true,
+      output: stdout + (stderr ? '\n' + stderr : '')
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      output: '',
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Initialize git repository
+ */
+export async function initGitRepo(projectPath: string): Promise<boolean> {
+  try {
+    await execAsync('git init', { cwd: projectPath });
+    await execAsync('git add .', { cwd: projectPath });
+    await execAsync('git commit -m "Initial commit from Singularity IDE"', { cwd: projectPath });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export default {
+  generateProject,
+  installDependencies,
+  initGitRepo
+};
