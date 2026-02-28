@@ -105,8 +105,17 @@ class ExtensionHostManager {
     // Fork the extension host process
     // Build a clean env for the extension host — remove vars that cause nested-session
     // detection in tools like Claude CLI, and add required paths
+    // Ensure Git directories are on PATH so extensions can find git.exe and bash.exe
+    const gitBin = 'C:\\Program Files\\Git\\bin';
+    const gitMingw = 'C:\\Program Files\\Git\\mingw64\\bin';
+    const gitCmd = 'C:\\Program Files\\Git\\cmd';
+    const currentPath = process.env.PATH || process.env.Path || '';
+    const ensuredPath = [gitCmd, gitBin, gitMingw].filter(p => !currentPath.includes(p)).join(';')
+      + (currentPath ? ';' + currentPath : '');
+
     const extEnv = {
       ...process.env,
+      PATH: ensuredPath,
       // CRITICAL: Tell the Electron binary to run as Node.js when forked.
       // Without this, fork() uses process.execPath (Electron binary) which
       // would try to launch another Electron instance instead of a Node.js script.
