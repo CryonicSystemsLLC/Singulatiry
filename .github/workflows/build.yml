@@ -62,9 +62,36 @@ jobs:
           name: linux-deb
           path: release/*/Singularity-Linux-*.deb
 
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npx tsc --noEmit
+          npx vite build
+          npx electron-builder --mac --config electron-builder.json5
+
+      - name: Upload Mac DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-installer
+          path: release/*/Singularity-Mac-*-Installer.dmg
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-mac]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -78,4 +105,5 @@ jobs:
           files: |
             windows-installer/*
             linux-deb/*
+            mac-installer/*
           generate_release_notes: true
