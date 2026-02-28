@@ -55,23 +55,23 @@ const TASK_TYPE_ICONS: Record<TaskType, React.ReactNode> = {
 };
 
 const STATUS_COLORS = {
-  pending: 'text-gray-500',
-  queued: 'text-blue-400',
-  in_progress: 'text-yellow-400',
-  completed: 'text-green-400',
-  failed: 'text-red-400',
-  skipped: 'text-gray-600',
-  cancelled: 'text-gray-500'
+  pending: 'text-[var(--text-muted)]',
+  queued: 'text-[var(--info)]',
+  in_progress: 'text-[var(--warning)]',
+  completed: 'text-[var(--success)]',
+  failed: 'text-[var(--error)]',
+  skipped: 'text-[var(--text-dim)]',
+  cancelled: 'text-[var(--text-muted)]'
 };
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
-  pending: <Circle size={16} className="text-gray-500" />,
-  queued: <Clock size={16} className="text-blue-400" />,
-  in_progress: <Loader2 size={16} className="text-yellow-400 animate-spin" />,
-  completed: <CheckCircle size={16} className="text-green-400" />,
-  failed: <XCircle size={16} className="text-red-400" />,
-  skipped: <SkipForward size={16} className="text-gray-600" />,
-  cancelled: <XCircle size={16} className="text-gray-500" />
+  pending: <Circle size={16} className="text-[var(--text-muted)]" />,
+  queued: <Clock size={16} className="text-[var(--info)]" />,
+  in_progress: <Loader2 size={16} className="text-[var(--warning)] animate-spin" />,
+  completed: <CheckCircle size={16} className="text-[var(--success)]" />,
+  failed: <XCircle size={16} className="text-[var(--error)]" />,
+  skipped: <SkipForward size={16} className="text-[var(--text-dim)]" />,
+  cancelled: <XCircle size={16} className="text-[var(--text-muted)]" />
 };
 
 function TaskItem({
@@ -90,10 +90,10 @@ function TaskItem({
   const hasDetails = task.result || task.error;
 
   return (
-    <div className="border-b border-[#27272a] last:border-b-0">
+    <div className="border-b border-[var(--border-primary)] last:border-b-0">
       <div
-        className={`flex items-center gap-2 px-3 py-2 hover:bg-[#1f1f23] cursor-pointer transition-colors ${
-          task.status === 'in_progress' ? 'bg-yellow-500/5' : ''
+        className={`flex items-center gap-2 px-3 py-2 hover:bg-[var(--bg-secondary)] cursor-pointer transition-colors ${
+          task.status === 'in_progress' ? 'bg-[var(--warning)]/5' : ''
         }`}
         style={{ paddingLeft: `${12 + depth * 16}px` }}
         onClick={onClick}
@@ -104,7 +104,7 @@ function TaskItem({
               e.stopPropagation();
               onToggle();
             }}
-            className="text-gray-500 hover:text-white"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
           >
             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           </button>
@@ -114,7 +114,7 @@ function TaskItem({
 
         {STATUS_ICONS[task.status]}
 
-        <span className="text-gray-500">
+        <span className="text-[var(--text-muted)]">
           {TASK_TYPE_ICONS[task.type] || <Circle size={14} />}
         </span>
 
@@ -123,29 +123,29 @@ function TaskItem({
         </span>
 
         {task.executionTimeMs && (
-          <span className="text-xs text-gray-600">
+          <span className="text-xs text-[var(--text-dim)]">
             {(task.executionTimeMs / 1000).toFixed(1)}s
           </span>
         )}
       </div>
 
       {isExpanded && hasDetails && (
-        <div className="px-4 py-2 bg-[#0d0d12] text-xs font-mono border-t border-[#27272a]"
+        <div className="px-4 py-2 bg-[var(--bg-primary)] text-xs font-mono border-t border-[var(--border-primary)]"
              style={{ marginLeft: `${12 + depth * 16}px` }}>
           {task.error && (
-            <div className="text-red-400 mb-2">
+            <div className="text-[var(--error)] mb-2">
               <strong>Error:</strong> {task.error.message}
             </div>
           )}
           {task.result && (
-            <div className="text-gray-400">
+            <div className="text-[var(--text-muted)]">
               {task.result.output ? (
                 <pre className="whitespace-pre-wrap max-h-40 overflow-auto">
                   {task.result.output.slice(0, 1000)}
                   {task.result.output.length > 1000 && '...'}
                 </pre>
               ) : (
-                <span className="text-green-400">Completed successfully</span>
+                <span className="text-[var(--success)]">Completed successfully</span>
               )}
             </div>
           )}
@@ -175,7 +175,7 @@ export default function TaskGraphView({
 
   if (!graph) {
     return (
-      <div className="flex items-center justify-center h-full text-gray-500">
+      <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
         <div className="text-center">
           <Circle size={48} className="mx-auto mb-2 opacity-30" />
           <p className="text-sm">No active plan</p>
@@ -187,28 +187,28 @@ export default function TaskGraphView({
   const progressPercent = stats ? (stats.completed / stats.total) * 100 : 0;
 
   return (
-    <div className="flex flex-col h-full bg-[#18181b] rounded-lg border border-[#27272a]">
+    <div className="flex flex-col h-full bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-primary)]">
       {/* Header */}
-      <div className="p-3 border-b border-[#27272a]">
+      <div className="p-3 border-b border-[var(--border-primary)]">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium text-white">{graph.name}</h3>
+          <h3 className="text-sm font-medium text-[var(--text-primary)]">{graph.name}</h3>
           <span className={`text-xs px-2 py-0.5 rounded ${
-            graph.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-            graph.status === 'failed' ? 'bg-red-500/20 text-red-400' :
-            graph.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-400' :
-            'bg-gray-500/20 text-gray-400'
+            graph.status === 'completed' ? 'bg-[var(--success)]/20 text-[var(--success)]' :
+            graph.status === 'failed' ? 'bg-[var(--error)]/20 text-[var(--error)]' :
+            graph.status === 'in_progress' ? 'bg-[var(--warning)]/20 text-[var(--warning)]' :
+            'bg-[var(--text-muted)]/20 text-[var(--text-muted)]'
           }`}>
             {graph.status.replace('_', ' ')}
           </span>
         </div>
 
         {/* Progress Bar */}
-        <div className="h-1.5 bg-[#27272a] rounded-full overflow-hidden">
+        <div className="h-1.5 bg-[var(--bg-tertiary)] rounded-full overflow-hidden">
           <div
             className={`h-full transition-all duration-300 ${
-              stats?.failed ? 'bg-red-500' :
-              graph.status === 'completed' ? 'bg-green-500' :
-              'bg-purple-500'
+              stats?.failed ? 'bg-[var(--error)]' :
+              graph.status === 'completed' ? 'bg-[var(--success)]' :
+              'bg-[var(--accent-primary)]'
             }`}
             style={{ width: `${progressPercent}%` }}
           />
@@ -217,16 +217,16 @@ export default function TaskGraphView({
         {/* Stats */}
         {stats && (
           <div className="flex gap-4 mt-2 text-xs">
-            <span className="text-gray-500">
+            <span className="text-[var(--text-muted)]">
               {stats.completed}/{stats.total} tasks
             </span>
             {stats.inProgress > 0 && (
-              <span className="text-yellow-400">
+              <span className="text-[var(--warning)]">
                 {stats.inProgress} running
               </span>
             )}
             {stats.failed > 0 && (
-              <span className="text-red-400">
+              <span className="text-[var(--error)]">
                 {stats.failed} failed
               </span>
             )}
@@ -249,7 +249,7 @@ export default function TaskGraphView({
 
       {/* Footer */}
       {graph.executionTimeMs && (
-        <div className="p-2 border-t border-[#27272a] text-xs text-gray-500 flex justify-between">
+        <div className="p-2 border-t border-[var(--border-primary)] text-xs text-[var(--text-muted)] flex justify-between">
           <span>Total time: {(graph.executionTimeMs / 1000).toFixed(1)}s</span>
           {graph.totalCost !== undefined && (
             <span>Est. cost: ${graph.totalCost.toFixed(4)}</span>

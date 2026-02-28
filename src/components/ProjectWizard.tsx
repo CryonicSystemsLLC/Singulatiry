@@ -129,31 +129,31 @@ export default function ProjectWizard({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      <div className="bg-[#18181b] w-[640px] rounded-xl border border-[#27272a] shadow-2xl overflow-hidden">
+      <div className="bg-[var(--bg-secondary)] w-[640px] rounded-xl border border-[var(--border-primary)] shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[#27272a]">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border-primary)]">
           <div className="flex items-center gap-3">
-            <Rocket size={20} className="text-purple-400" />
-            <h2 className="text-white font-semibold">New Project</h2>
+            <Rocket size={20} className="text-[var(--accent-primary)]" />
+            <h2 className="text-[var(--text-primary)] font-semibold">New Project</h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button onClick={onClose} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
             <X size={20} />
           </button>
         </div>
 
         {/* Progress Steps */}
-        <div className="flex items-center justify-center gap-2 py-4 border-b border-[#27272a]">
+        <div className="flex items-center justify-center gap-2 py-4 border-b border-[var(--border-primary)]">
           {[1, 2, 3].map(s => (
             <React.Fragment key={s}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                s === step ? 'bg-purple-500 text-white' :
-                s < step ? 'bg-green-500/20 text-green-400' :
-                'bg-[#27272a] text-gray-500'
+                s === step ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]' :
+                s < step ? 'bg-[var(--success)]/20 text-[var(--success)]' :
+                'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
               }`}>
                 {s < step ? <Check size={16} /> : s}
               </div>
               {s < 3 && (
-                <div className={`w-12 h-0.5 ${s < step ? 'bg-green-500/50' : 'bg-[#27272a]'}`} />
+                <div className={`w-12 h-0.5 ${s < step ? 'bg-[var(--success)]/50' : 'bg-[var(--bg-tertiary)]'}`} />
               )}
             </React.Fragment>
           ))}
@@ -163,10 +163,10 @@ export default function ProjectWizard({
         <div className="p-6 min-h-[320px]">
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-white mb-4">Project Details</h3>
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-4">Project Details</h3>
 
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">
+                <label className="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold tracking-wider">
                   Project Name
                 </label>
                 <input
@@ -174,12 +174,12 @@ export default function ProjectWizard({
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
                   placeholder="my-awesome-app"
-                  className="w-full bg-[#27272a] text-white rounded-lg px-4 py-3 text-sm border border-transparent focus:border-purple-500 focus:outline-none placeholder-gray-600"
+                  className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-lg px-4 py-3 text-sm border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">
+                <label className="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold tracking-wider">
                   Location
                 </label>
                 <div className="flex gap-2">
@@ -187,12 +187,12 @@ export default function ProjectWizard({
                     type="text"
                     value={projectPath}
                     onChange={(e) => setProjectPath(e.target.value)}
-                    placeholder="C:\Projects"
-                    className="flex-1 bg-[#27272a] text-white rounded-lg px-4 py-3 text-sm border border-transparent focus:border-purple-500 focus:outline-none placeholder-gray-600"
+                    placeholder={navigator.platform.toUpperCase().includes('WIN') ? 'C:\\Projects' : '~/projects'}
+                    className="flex-1 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-lg px-4 py-3 text-sm border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
                   />
                   <button
                     onClick={handleSelectFolder}
-                    className="px-4 py-3 bg-[#27272a] text-gray-400 rounded-lg hover:text-white hover:bg-[#3f3f46] transition-colors"
+                    className="px-4 py-3 bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded-lg hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] transition-colors"
                   >
                     <FolderOpen size={18} />
                   </button>
@@ -200,7 +200,7 @@ export default function ProjectWizard({
               </div>
 
               <div>
-                <label className="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">
+                <label className="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold tracking-wider">
                   Description (Optional)
                 </label>
                 <textarea
@@ -208,7 +208,7 @@ export default function ProjectWizard({
                   onChange={(e) => setProjectDescription(e.target.value)}
                   placeholder="Describe your project..."
                   rows={3}
-                  className="w-full bg-[#27272a] text-white rounded-lg px-4 py-3 text-sm border border-transparent focus:border-purple-500 focus:outline-none placeholder-gray-600 resize-none"
+                  className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-lg px-4 py-3 text-sm border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)] resize-none"
                 />
               </div>
             </div>
@@ -216,7 +216,7 @@ export default function ProjectWizard({
 
           {step === 2 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-white mb-4">Choose a Stack</h3>
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-4">Choose a Stack</h3>
 
               <div className="grid grid-cols-2 gap-3">
                 {stacks.map(stack => (
@@ -225,26 +225,26 @@ export default function ProjectWizard({
                     onClick={() => setSelectedStackId(stack.id)}
                     className={`p-4 rounded-lg border text-left transition-all ${
                       selectedStackId === stack.id
-                        ? 'border-purple-500 bg-purple-500/10'
-                        : 'border-[#27272a] hover:border-[#3f3f46] bg-[#1f1f23]'
+                        ? 'border-[var(--accent-primary)] bg-[var(--accent-bg)]'
+                        : 'border-[var(--border-primary)] hover:border-[var(--bg-hover)] bg-[var(--bg-secondary)]'
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      {stack.frontend.framework === 'next' && <Layout size={16} className="text-blue-400" />}
+                      {stack.frontend.framework === 'next' && <Layout size={16} className="text-[var(--info)]" />}
                       {stack.frontend.framework === 'react' && <Code size={16} className="text-cyan-400" />}
-                      {stack.backend.framework === 'fastapi' && <Server size={16} className="text-green-400" />}
-                      {stack.backend.framework === 'express' && <Server size={16} className="text-yellow-400" />}
-                      <span className="text-sm font-medium text-white">{stack.name}</span>
+                      {stack.backend.framework === 'fastapi' && <Server size={16} className="text-[var(--success)]" />}
+                      {stack.backend.framework === 'express' && <Server size={16} className="text-[var(--warning)]" />}
+                      <span className="text-sm font-medium text-[var(--text-primary)]">{stack.name}</span>
                     </div>
-                    <p className="text-xs text-gray-500">{stack.description}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{stack.description}</p>
                     <div className="flex gap-1 mt-2">
                       {stack.database.type !== 'none' && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-[#27272a] text-gray-400 rounded">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded">
                           {stack.database.type}
                         </span>
                       )}
                       {stack.database.orm && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-[#27272a] text-gray-400 rounded">
+                        <span className="text-[10px] px-1.5 py-0.5 bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded">
                           {stack.database.orm}
                         </span>
                       )}
@@ -257,11 +257,11 @@ export default function ProjectWizard({
 
           {step === 3 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-medium text-white mb-4">Configuration</h3>
+              <h3 className="text-lg font-medium text-[var(--text-primary)] mb-4">Configuration</h3>
 
               {/* Features */}
               <div>
-                <label className="block text-xs text-gray-400 mb-2 uppercase font-bold tracking-wider">
+                <label className="block text-xs text-[var(--text-muted)] mb-2 uppercase font-bold tracking-wider">
                   Features
                 </label>
                 <div className="space-y-2">
@@ -270,8 +270,8 @@ export default function ProjectWizard({
                       key={feature.id}
                       className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
                         selectedFeatures.has(feature.id)
-                          ? 'bg-purple-500/10 border border-purple-500/30'
-                          : 'bg-[#1f1f23] border border-[#27272a] hover:border-[#3f3f46]'
+                          ? 'bg-[var(--accent-bg)] border border-[var(--accent-primary)]/30'
+                          : 'bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:border-[var(--bg-hover)]'
                       }`}
                     >
                       <input
@@ -282,14 +282,14 @@ export default function ProjectWizard({
                       />
                       <div className={`w-4 h-4 rounded border flex items-center justify-center ${
                         selectedFeatures.has(feature.id)
-                          ? 'bg-purple-500 border-purple-500'
-                          : 'border-gray-600'
+                          ? 'bg-[var(--accent-primary)] border-[var(--accent-primary)]'
+                          : 'border-[var(--text-dim)]'
                       }`}>
-                        {selectedFeatures.has(feature.id) && <Check size={12} className="text-white" />}
+                        {selectedFeatures.has(feature.id) && <Check size={12} className="text-[var(--text-primary)]" />}
                       </div>
                       <div className="flex-1">
-                        <span className="text-sm text-white">{feature.label}</span>
-                        <span className="text-xs text-gray-500 ml-2">{feature.description}</span>
+                        <span className="text-sm text-[var(--text-primary)]">{feature.label}</span>
+                        <span className="text-xs text-[var(--text-muted)] ml-2">{feature.description}</span>
                       </div>
                     </label>
                   ))}
@@ -299,7 +299,7 @@ export default function ProjectWizard({
               {/* Database URL */}
               {selectedStack?.database.type === 'postgresql' && (
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">
+                  <label className="block text-xs text-[var(--text-muted)] mb-1 uppercase font-bold tracking-wider">
                     <Database size={12} className="inline mr-1" />
                     Database URL (Optional)
                   </label>
@@ -308,9 +308,9 @@ export default function ProjectWizard({
                     value={databaseUrl}
                     onChange={(e) => setDatabaseUrl(e.target.value)}
                     placeholder="postgresql://user:pass@localhost:5432/mydb"
-                    className="w-full bg-[#27272a] text-white rounded-lg px-4 py-3 text-sm border border-transparent focus:border-purple-500 focus:outline-none placeholder-gray-600 font-mono"
+                    className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-lg px-4 py-3 text-sm border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)] font-mono"
                   />
-                  <p className="text-xs text-gray-600 mt-1">
+                  <p className="text-xs text-[var(--text-dim)] mt-1">
                     Leave blank to use a local SQLite database for development
                   </p>
                 </div>
@@ -319,7 +319,7 @@ export default function ProjectWizard({
           )}
 
           {error && (
-            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-400 text-sm">
+            <div className="mt-4 p-3 bg-[var(--error)]/10 border border-[var(--error)]/30 rounded-lg flex items-center gap-2 text-[var(--error)] text-sm">
               <AlertCircle size={16} />
               {error}
             </div>
@@ -327,11 +327,11 @@ export default function ProjectWizard({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-[#27272a] bg-[#0d0d12]">
+        <div className="flex items-center justify-between p-4 border-t border-[var(--border-primary)] bg-[var(--bg-primary)]">
           <button
             onClick={() => setStep(s => Math.max(1, s - 1))}
             disabled={step === 1}
-            className="flex items-center gap-1 px-4 py-2 text-sm text-gray-400 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft size={16} />
             Back
@@ -340,7 +340,7 @@ export default function ProjectWizard({
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-400 hover:text-white"
+              className="px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)]"
             >
               Cancel
             </button>
@@ -349,7 +349,7 @@ export default function ProjectWizard({
               <button
                 onClick={() => setStep(s => s + 1)}
                 disabled={!canProceed()}
-                className="flex items-center gap-1 px-4 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-4 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
                 <ChevronRight size={16} />
@@ -358,7 +358,7 @@ export default function ProjectWizard({
               <button
                 onClick={handleCreate}
                 disabled={loading || !canProceed()}
-                className="flex items-center gap-2 px-6 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

@@ -125,12 +125,12 @@ export default function KidChat({
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-[#1a1a2e] to-[#16162a]">
       {/* Header */}
-      <div className="flex items-center gap-4 p-4 border-b border-[#27272a]">
+      <div className="flex items-center gap-4 p-4 border-b border-[var(--border-primary)]">
         <button
           onClick={onBack}
-          className="p-2 hover:bg-[#27272a] rounded-lg transition-colors"
+          className="p-2 hover:bg-[var(--bg-tertiary)] rounded-lg transition-colors"
         >
-          <ArrowLeft size={20} className="text-gray-400" />
+          <ArrowLeft size={20} className="text-[var(--text-muted)]" />
         </button>
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
@@ -138,7 +138,7 @@ export default function KidChat({
           </div>
           <div>
             <h1 className="text-white font-semibold">AI Helper</h1>
-            <p className="text-xs text-gray-500">Here to help you build</p>
+            <p className="text-xs text-[var(--text-muted)]">Here to help you build</p>
           </div>
         </div>
       </div>
@@ -150,22 +150,22 @@ export default function KidChat({
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-3 p-4 bg-[#27272a] rounded-2xl max-w-[80%]">
-            <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
-            <span className="text-gray-400">Thinking...</span>
+          <div className="flex items-center gap-3 p-4 bg-[var(--bg-tertiary)] rounded-2xl max-w-[80%]">
+            <Loader2 className="w-5 h-5 text-[var(--accent-primary)] animate-spin" />
+            <span className="text-[var(--text-muted)]">Thinking...</span>
           </div>
         )}
 
         {/* Starter prompts */}
         {showStarters && !isLoading && (
           <div className="mt-4">
-            <p className="text-sm text-gray-500 mb-3">Try asking me something like:</p>
+            <p className="text-sm text-[var(--text-muted)] mb-3">Try asking me something like:</p>
             <div className="flex flex-wrap gap-2">
               {STARTER_PROMPTS.map((prompt, i) => (
                 <button
                   key={i}
                   onClick={() => handleStarterPrompt(prompt)}
-                  className="px-4 py-2 bg-[#27272a] text-gray-300 rounded-full text-sm hover:bg-[#3f3f46] hover:text-white transition-colors"
+                  className="px-4 py-2 bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-full text-sm hover:bg-[var(--bg-hover)] hover:text-white transition-colors"
                 >
                   {prompt}
                 </button>
@@ -178,7 +178,7 @@ export default function KidChat({
       </div>
 
       {/* Quick Actions */}
-      <div className="px-4 py-2 border-t border-[#27272a]">
+      <div className="px-4 py-2 border-t border-[var(--border-primary)]">
         <div className="flex gap-2 overflow-x-auto pb-2">
           {QUICK_ACTIONS.map((action) => {
             const Icon = action.icon;
@@ -186,7 +186,7 @@ export default function KidChat({
               <button
                 key={action.id}
                 onClick={() => handleQuickAction(action.prompt)}
-                className="flex items-center gap-2 px-4 py-2 bg-[#27272a] text-gray-300 rounded-full text-sm whitespace-nowrap hover:bg-[#3f3f46] hover:text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-full text-sm whitespace-nowrap hover:bg-[var(--bg-hover)] hover:text-white transition-colors"
               >
                 <Icon size={16} />
                 {action.label}
@@ -197,9 +197,9 @@ export default function KidChat({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-[#27272a]">
+      <div className="p-4 border-t border-[var(--border-primary)]">
         <div className="flex items-end gap-3">
-          <div className="flex-1 bg-[#27272a] rounded-2xl p-3">
+          <div className="flex-1 bg-[var(--bg-tertiary)] rounded-2xl p-3">
             <textarea
               ref={inputRef}
               value={input}
@@ -211,7 +211,7 @@ export default function KidChat({
                 }
               }}
               placeholder="Type what you want to do..."
-              className="w-full bg-transparent text-white placeholder-gray-500 resize-none outline-none text-base"
+              className="w-full bg-transparent text-white placeholder-[var(--text-muted)] resize-none outline-none text-base"
               rows={1}
               disabled={isLoading}
             />
@@ -242,7 +242,7 @@ function ChatMessage({ message }: ChatMessageProps) {
         className={`max-w-[80%] p-4 rounded-2xl ${
           isUser
             ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-br-md'
-            : 'bg-[#27272a] text-gray-100 rounded-bl-md'
+            : 'bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-bl-md'
         }`}
       >
         <p className="text-base leading-relaxed whitespace-pre-wrap">
@@ -253,13 +253,13 @@ function ChatMessage({ message }: ChatMessageProps) {
         {!isUser && (
           <div className="flex items-center gap-2 mt-3 pt-2 border-t border-white/10">
             <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-              <ThumbsUp size={14} className="text-gray-400" />
+              <ThumbsUp size={14} className="text-[var(--text-muted)]" />
             </button>
             <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors">
-              <ThumbsDown size={14} className="text-gray-400" />
+              <ThumbsDown size={14} className="text-[var(--text-muted)]" />
             </button>
             <button className="p-1.5 hover:bg-white/10 rounded-lg transition-colors ml-auto">
-              <RefreshCw size={14} className="text-gray-400" />
+              <RefreshCw size={14} className="text-[var(--text-muted)]" />
             </button>
           </div>
         )}

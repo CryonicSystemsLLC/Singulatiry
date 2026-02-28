@@ -20,15 +20,15 @@ export type ProviderId =
 export type ModelId =
   | 'openai:gpt-4o'
   | 'openai:gpt-4o-mini'
-  | 'openai:gpt-4-turbo'
-  | 'anthropic:claude-3-5-sonnet'
-  | 'anthropic:claude-3-opus'
-  | 'anthropic:claude-3-haiku'
-  | 'gemini:gemini-1.5-pro'
-  | 'gemini:gemini-1.5-flash'
-  | 'xai:grok-beta'
+  | 'openai:o3-mini'
+  | 'anthropic:claude-opus-4-6'
+  | 'anthropic:claude-sonnet-4-6'
+  | 'anthropic:claude-haiku-4-5'
+  | 'gemini:gemini-2.5-pro'
+  | 'gemini:gemini-2.5-flash'
+  | 'xai:grok-3'
   | 'deepseek:deepseek-chat'
-  | 'deepseek:deepseek-coder'
+  | 'deepseek:deepseek-r1'
   | 'kimi:moonshot-v1-8k'
   | 'kimi:moonshot-v1-32k'
   | 'qwen:qwen-plus'
@@ -139,6 +139,10 @@ export interface ChatRequest {
   temperature?: number;
   stopSequences?: string[];
   responseFormat?: 'text' | 'json';
+  thinking?: {
+    enabled: boolean;
+    budgetTokens?: number;
+  };
 }
 
 export interface StreamRequest extends ChatRequest {
@@ -175,8 +179,9 @@ export interface ChatResponse {
 }
 
 export interface StreamChunk {
-  type: 'content' | 'tool_call' | 'done' | 'error';
+  type: 'content' | 'thinking' | 'tool_call' | 'done' | 'error';
   content?: string;
+  thinking?: string;
   toolCall?: Partial<ToolCall>;
   error?: string;
   usage?: Partial<TokenUsage>;
@@ -421,11 +426,12 @@ export const PROVIDER_CONFIGS: Record<ProviderId, ProviderConfig> = {
 };
 
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
+  // ===== OpenAI =====
   'openai:gpt-4o': {
     id: 'openai:gpt-4o',
     providerId: 'openai',
     displayName: 'GPT-4o',
-    description: 'Most capable OpenAI model with vision',
+    description: 'Latest GPT-4o with vision and tool use',
     contextWindow: 128000,
     maxOutputTokens: 16384,
     capabilities: {
@@ -463,13 +469,57 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
-  'anthropic:claude-3-5-sonnet': {
-    id: 'anthropic:claude-3-5-sonnet',
+  'openai:o3-mini': {
+    id: 'openai:o3-mini',
+    providerId: 'openai',
+    displayName: 'o3-mini',
+    description: 'Reasoning model for complex tasks',
+    contextWindow: 128000,
+    maxOutputTokens: 65536,
+    capabilities: {
+      chat: true,
+      streaming: true,
+      toolCalling: true,
+      vision: false,
+      codeExecution: false,
+      jsonMode: true
+    },
+    costPerInputToken: 1.10,
+    costPerOutputToken: 4.40,
+    rateLimit: { requestsPerMinute: 500, tokensPerMinute: 200000 },
+    defaultTemperature: 1.0,
+    defaultMaxTokens: 8192
+  },
+
+  // ===== Anthropic =====
+  'anthropic:claude-opus-4-6': {
+    id: 'anthropic:claude-opus-4-6',
     providerId: 'anthropic',
-    displayName: 'Claude 3.5 Sonnet',
-    description: 'Best for coding and analysis',
+    displayName: 'Claude Opus 4.6',
+    description: 'Frontier reasoning and coding',
     contextWindow: 200000,
-    maxOutputTokens: 8192,
+    maxOutputTokens: 32000,
+    capabilities: {
+      chat: true,
+      streaming: true,
+      toolCalling: true,
+      vision: true,
+      codeExecution: false,
+      jsonMode: false
+    },
+    costPerInputToken: 15.00,
+    costPerOutputToken: 75.00,
+    rateLimit: { requestsPerMinute: 50, tokensPerMinute: 100000 },
+    defaultTemperature: 0.7,
+    defaultMaxTokens: 4096
+  },
+  'anthropic:claude-sonnet-4-6': {
+    id: 'anthropic:claude-sonnet-4-6',
+    providerId: 'anthropic',
+    displayName: 'Claude Sonnet 4.6',
+    description: 'Best balance of speed and capability',
+    contextWindow: 200000,
+    maxOutputTokens: 16384,
     capabilities: {
       chat: true,
       streaming: true,
@@ -484,13 +534,13 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
-  'anthropic:claude-3-haiku': {
-    id: 'anthropic:claude-3-haiku',
+  'anthropic:claude-haiku-4-5': {
+    id: 'anthropic:claude-haiku-4-5',
     providerId: 'anthropic',
-    displayName: 'Claude 3 Haiku',
+    displayName: 'Claude Haiku 4.5',
     description: 'Fast and efficient',
     contextWindow: 200000,
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     capabilities: {
       chat: true,
       streaming: true,
@@ -499,40 +549,21 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
       codeExecution: false,
       jsonMode: false
     },
-    costPerInputToken: 0.25,
-    costPerOutputToken: 1.25,
+    costPerInputToken: 1.00,
+    costPerOutputToken: 5.00,
     rateLimit: { requestsPerMinute: 50, tokensPerMinute: 100000 },
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
-  'gemini:gemini-1.5-flash': {
-    id: 'gemini:gemini-1.5-flash',
+
+  // ===== Google Gemini =====
+  'gemini:gemini-2.5-pro': {
+    id: 'gemini:gemini-2.5-pro',
     providerId: 'gemini',
-    displayName: 'Gemini 1.5 Flash',
-    description: 'Fast with 1M context',
+    displayName: 'Gemini 2.5 Pro',
+    description: 'Most capable Gemini with 1M context',
     contextWindow: 1000000,
-    maxOutputTokens: 8192,
-    capabilities: {
-      chat: true,
-      streaming: true,
-      toolCalling: true,
-      vision: true,
-      codeExecution: true,
-      jsonMode: true
-    },
-    costPerInputToken: 0.075,
-    costPerOutputToken: 0.30,
-    rateLimit: { requestsPerMinute: 360, tokensPerMinute: 4000000 },
-    defaultTemperature: 0.7,
-    defaultMaxTokens: 4096
-  },
-  'gemini:gemini-1.5-pro': {
-    id: 'gemini:gemini-1.5-pro',
-    providerId: 'gemini',
-    displayName: 'Gemini 1.5 Pro',
-    description: 'Most capable Gemini model',
-    contextWindow: 2000000,
-    maxOutputTokens: 8192,
+    maxOutputTokens: 65536,
     capabilities: {
       chat: true,
       streaming: true,
@@ -542,60 +573,85 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
       jsonMode: true
     },
     costPerInputToken: 1.25,
-    costPerOutputToken: 5.00,
+    costPerOutputToken: 10.00,
     rateLimit: { requestsPerMinute: 360, tokensPerMinute: 4000000 },
     defaultTemperature: 0.7,
-    defaultMaxTokens: 4096
+    defaultMaxTokens: 8192
   },
-  'xai:grok-beta': {
-    id: 'xai:grok-beta',
-    providerId: 'xai',
-    displayName: 'Grok Beta',
-    description: 'xAI\'s conversational model',
-    contextWindow: 131072,
-    maxOutputTokens: 4096,
+  'gemini:gemini-2.5-flash': {
+    id: 'gemini:gemini-2.5-flash',
+    providerId: 'gemini',
+    displayName: 'Gemini 2.5 Flash',
+    description: 'Fast with massive 1M context',
+    contextWindow: 1000000,
+    maxOutputTokens: 65536,
     capabilities: {
       chat: true,
       streaming: true,
-      toolCalling: false,
+      toolCalling: true,
+      vision: true,
+      codeExecution: true,
+      jsonMode: true
+    },
+    costPerInputToken: 0.15,
+    costPerOutputToken: 0.60,
+    rateLimit: { requestsPerMinute: 360, tokensPerMinute: 4000000 },
+    defaultTemperature: 0.7,
+    defaultMaxTokens: 8192
+  },
+
+  // ===== xAI =====
+  'xai:grok-3': {
+    id: 'xai:grok-3',
+    providerId: 'xai',
+    displayName: 'Grok 3',
+    description: 'xAI\'s latest frontier model',
+    contextWindow: 131072,
+    maxOutputTokens: 16384,
+    capabilities: {
+      chat: true,
+      streaming: true,
+      toolCalling: true,
       vision: false,
       codeExecution: false,
-      jsonMode: false
+      jsonMode: true
     },
-    costPerInputToken: 5.00,
+    costPerInputToken: 3.00,
     costPerOutputToken: 15.00,
     rateLimit: { requestsPerMinute: 60, tokensPerMinute: 100000 },
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
+
+  // ===== DeepSeek =====
   'deepseek:deepseek-chat': {
     id: 'deepseek:deepseek-chat',
     providerId: 'deepseek',
-    displayName: 'DeepSeek Chat',
+    displayName: 'DeepSeek V3',
     description: 'Cost-effective general purpose',
     contextWindow: 64000,
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     capabilities: {
       chat: true,
       streaming: true,
-      toolCalling: false,
+      toolCalling: true,
       vision: false,
       codeExecution: false,
-      jsonMode: false
+      jsonMode: true
     },
-    costPerInputToken: 0.14,
-    costPerOutputToken: 0.28,
+    costPerInputToken: 0.27,
+    costPerOutputToken: 1.10,
     rateLimit: { requestsPerMinute: 60, tokensPerMinute: 60000 },
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
-  'deepseek:deepseek-coder': {
-    id: 'deepseek:deepseek-coder',
+  'deepseek:deepseek-r1': {
+    id: 'deepseek:deepseek-r1',
     providerId: 'deepseek',
-    displayName: 'DeepSeek Coder',
-    description: 'Specialized for coding',
+    displayName: 'DeepSeek R1',
+    description: 'Reasoning model with chain-of-thought',
     contextWindow: 64000,
-    maxOutputTokens: 4096,
+    maxOutputTokens: 8192,
     capabilities: {
       chat: true,
       streaming: true,
@@ -604,12 +660,14 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
       codeExecution: false,
       jsonMode: false
     },
-    costPerInputToken: 0.14,
-    costPerOutputToken: 0.28,
+    costPerInputToken: 0.55,
+    costPerOutputToken: 2.19,
     rateLimit: { requestsPerMinute: 60, tokensPerMinute: 60000 },
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
+
+  // ===== Moonshot Kimi =====
   'kimi:moonshot-v1-8k': {
     id: 'kimi:moonshot-v1-8k',
     providerId: 'kimi',
@@ -631,13 +689,15 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     defaultTemperature: 0.7,
     defaultMaxTokens: 4096
   },
+
+  // ===== Alibaba Qwen =====
   'qwen:qwen-plus': {
     id: 'qwen:qwen-plus',
     providerId: 'qwen',
     displayName: 'Qwen Plus',
     description: 'Alibaba\'s advanced model',
-    contextWindow: 32000,
-    maxOutputTokens: 4096,
+    contextWindow: 131072,
+    maxOutputTokens: 8192,
     capabilities: {
       chat: true,
       streaming: true,

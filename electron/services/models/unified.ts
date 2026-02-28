@@ -56,9 +56,9 @@ const PROVIDERS: Record<ProviderId, ModelProvider> = {
  * Default models for different task types
  */
 const DEFAULT_MODELS: Record<string, ModelId> = {
-  default: 'anthropic:claude-3-5-sonnet',
-  planning: 'anthropic:claude-3-5-sonnet',
-  coding: 'anthropic:claude-3-5-sonnet',
+  default: 'anthropic:claude-sonnet-4-6',
+  planning: 'anthropic:claude-opus-4-6',
+  coding: 'anthropic:claude-sonnet-4-6',
   quick: 'deepseek:deepseek-chat',
   explain: 'openai:gpt-4o-mini',
   review: 'openai:gpt-4o'
@@ -68,7 +68,7 @@ const DEFAULT_MODELS: Record<string, ModelId> = {
  * Unified Model Service Implementation
  */
 class UnifiedModelServiceImpl implements UnifiedModelService {
-  private defaultModel: ModelId = 'anthropic:claude-3-5-sonnet';
+  private defaultModel: ModelId = 'anthropic:claude-sonnet-4-6';
   private toolRegistry: ToolRegistry;
 
   constructor(toolRegistry?: ToolRegistry) {
@@ -280,6 +280,12 @@ class UnifiedModelServiceImpl implements UnifiedModelService {
    */
   private getProvider(model: ModelId): ModelProvider {
     const providerId = getProviderFromModel(model);
+
+    // Custom models use OpenAI-compatible provider with custom base URL
+    if ((providerId as string) === 'custom') {
+      return openaiProvider; // OpenAI-compatible format
+    }
+
     const provider = PROVIDERS[providerId];
 
     if (!provider) {
@@ -298,6 +304,14 @@ class UnifiedModelServiceImpl implements UnifiedModelService {
    */
   private async getApiKey(model: ModelId): Promise<string> {
     const providerId = getProviderFromModel(model);
+
+    // Custom models may not need an API key (local inference)
+    if ((providerId as string) === 'custom') {
+      const keyStorage = getKeyStorage();
+      const apiKey = await keyStorage.getKey('custom');
+      return apiKey || 'no-key-needed';
+    }
+
     const keyStorage = getKeyStorage();
     const apiKey = await keyStorage.getKey(providerId);
 

@@ -103,35 +103,35 @@ export default function ModelConfig({
   };
 
   return (
-    <div className="bg-[#18181b] rounded-xl border border-[#27272a] overflow-hidden">
+    <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)] overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-center justify-between hover:bg-[#27272a] transition-colors"
+        className="w-full p-4 flex items-center justify-between hover:bg-[var(--bg-tertiary)] transition-colors"
       >
         <div className="flex items-center gap-3">
-          <Settings size={18} className="text-gray-400" />
-          <span className="text-white font-medium">Model Configuration</span>
-          <span className="text-xs text-gray-500">({modelId})</span>
+          <Settings size={18} className="text-[var(--text-muted)]" />
+          <span className="text-[var(--text-primary)] font-medium">Model Configuration</span>
+          <span className="text-xs text-[var(--text-muted)]">({modelId})</span>
         </div>
         {expanded ? (
-          <ChevronUp size={18} className="text-gray-400" />
+          <ChevronUp size={18} className="text-[var(--text-muted)]" />
         ) : (
-          <ChevronDown size={18} className="text-gray-400" />
+          <ChevronDown size={18} className="text-[var(--text-muted)]" />
         )}
       </button>
 
       {expanded && (
-        <div className="p-4 border-t border-[#27272a] space-y-6">
+        <div className="p-4 border-t border-[var(--border-primary)] space-y-6">
           {/* Presets */}
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">Quick Presets</label>
+            <label className="text-sm text-[var(--text-muted)] mb-2 block">Quick Presets</label>
             <div className="flex flex-wrap gap-2">
               {Object.keys(PRESETS).map(preset => (
                 <button
                   key={preset}
                   onClick={() => handlePreset(preset)}
-                  className="px-3 py-1.5 bg-[#27272a] text-gray-300 rounded-lg text-sm hover:bg-[#3f3f46] hover:text-white transition-colors"
+                  className="px-3 py-1.5 bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-lg text-sm hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)] transition-colors"
                 >
                   {preset}
                 </button>
@@ -143,16 +143,16 @@ export default function ModelConfig({
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Thermometer size={14} className="text-orange-400" />
-                <label className="text-sm text-gray-400">Temperature</label>
+                <Thermometer size={14} className="text-[var(--warning)]" />
+                <label className="text-sm text-[var(--text-muted)]">Temperature</label>
                 <button className="group relative">
-                  <Info size={12} className="text-gray-600" />
-                  <div className="absolute bottom-full left-0 mb-1 w-48 p-2 bg-[#27272a] rounded-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <Info size={12} className="text-[var(--text-dim)]" />
+                  <div className="absolute bottom-full left-0 mb-1 w-48 p-2 bg-[var(--bg-tertiary)] rounded-lg text-xs text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     Controls randomness. Lower = more focused, higher = more creative.
                   </div>
                 </button>
               </div>
-              <span className="text-sm text-white font-mono">{config.temperature.toFixed(2)}</span>
+              <span className="text-sm text-[var(--text-primary)] font-mono">{config.temperature.toFixed(2)}</span>
             </div>
             <input
               type="range"
@@ -161,9 +161,9 @@ export default function ModelConfig({
               step="0.01"
               value={config.temperature}
               onChange={(e) => handleChange('temperature', parseFloat(e.target.value))}
-              className="w-full h-2 bg-[#27272a] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
+              className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--accent-primary)]"
             />
-            <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+            <div className="flex justify-between text-[10px] text-[var(--text-dim)] mt-1">
               <span>Precise</span>
               <span>Creative</span>
             </div>
@@ -173,10 +173,10 @@ export default function ModelConfig({
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Hash size={14} className="text-blue-400" />
-                <label className="text-sm text-gray-400">Max Output Tokens</label>
+                <Hash size={14} className="text-[var(--info)]" />
+                <label className="text-sm text-[var(--text-muted)]">Max Output Tokens</label>
               </div>
-              <span className="text-sm text-white font-mono">{config.maxTokens}</span>
+              <span className="text-sm text-[var(--text-primary)] font-mono">{config.maxTokens}</span>
             </div>
             <input
               type="range"
@@ -185,7 +185,7 @@ export default function ModelConfig({
               step="256"
               value={config.maxTokens}
               onChange={(e) => handleChange('maxTokens', parseInt(e.target.value))}
-              className="w-full h-2 bg-[#27272a] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
+              className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--accent-primary)]"
             />
           </div>
 
@@ -193,15 +193,15 @@ export default function ModelConfig({
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <label className="text-sm text-gray-400">Top P (Nucleus Sampling)</label>
+                <label className="text-sm text-[var(--text-muted)]">Top P (Nucleus Sampling)</label>
                 <button className="group relative">
-                  <Info size={12} className="text-gray-600" />
-                  <div className="absolute bottom-full left-0 mb-1 w-48 p-2 bg-[#27272a] rounded-lg text-xs text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <Info size={12} className="text-[var(--text-dim)]" />
+                  <div className="absolute bottom-full left-0 mb-1 w-48 p-2 bg-[var(--bg-tertiary)] rounded-lg text-xs text-[var(--text-secondary)] opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     Alternative to temperature. Limits token selection to top probability mass.
                   </div>
                 </button>
               </div>
-              <span className="text-sm text-white font-mono">{config.topP.toFixed(2)}</span>
+              <span className="text-sm text-[var(--text-primary)] font-mono">{config.topP.toFixed(2)}</span>
             </div>
             <input
               type="range"
@@ -210,7 +210,7 @@ export default function ModelConfig({
               step="0.01"
               value={config.topP}
               onChange={(e) => handleChange('topP', parseFloat(e.target.value))}
-              className="w-full h-2 bg-[#27272a] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
+              className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--accent-primary)]"
             />
           </div>
 
@@ -218,8 +218,8 @@ export default function ModelConfig({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-gray-400">Frequency Penalty</label>
-                <span className="text-sm text-white font-mono">{config.frequencyPenalty.toFixed(2)}</span>
+                <label className="text-sm text-[var(--text-muted)]">Frequency Penalty</label>
+                <span className="text-sm text-[var(--text-primary)] font-mono">{config.frequencyPenalty.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -228,13 +228,13 @@ export default function ModelConfig({
                 step="0.1"
                 value={config.frequencyPenalty}
                 onChange={(e) => handleChange('frequencyPenalty', parseFloat(e.target.value))}
-                className="w-full h-2 bg-[#27272a] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
+                className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--accent-primary)]"
               />
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm text-gray-400">Presence Penalty</label>
-                <span className="text-sm text-white font-mono">{config.presencePenalty.toFixed(2)}</span>
+                <label className="text-sm text-[var(--text-muted)]">Presence Penalty</label>
+                <span className="text-sm text-[var(--text-primary)] font-mono">{config.presencePenalty.toFixed(2)}</span>
               </div>
               <input
                 type="range"
@@ -243,7 +243,7 @@ export default function ModelConfig({
                 step="0.1"
                 value={config.presencePenalty}
                 onChange={(e) => handleChange('presencePenalty', parseFloat(e.target.value))}
-                className="w-full h-2 bg-[#27272a] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
+                className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--accent-primary)]"
               />
             </div>
           </div>
@@ -252,10 +252,10 @@ export default function ModelConfig({
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-green-400" />
-                <label className="text-sm text-gray-400">Request Timeout</label>
+                <Clock size={14} className="text-[var(--success)]" />
+                <label className="text-sm text-[var(--text-muted)]">Request Timeout</label>
               </div>
-              <span className="text-sm text-white font-mono">{(config.timeout / 1000).toFixed(0)}s</span>
+              <span className="text-sm text-[var(--text-primary)] font-mono">{(config.timeout / 1000).toFixed(0)}s</span>
             </div>
             <input
               type="range"
@@ -264,13 +264,13 @@ export default function ModelConfig({
               step="5000"
               value={config.timeout}
               onChange={(e) => handleChange('timeout', parseInt(e.target.value))}
-              className="w-full h-2 bg-[#27272a] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
+              className="w-full h-2 bg-[var(--bg-tertiary)] rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[var(--accent-primary)]"
             />
           </div>
 
           {/* Stop Sequences */}
           <div>
-            <label className="text-sm text-gray-400 mb-2 block">Stop Sequences</label>
+            <label className="text-sm text-[var(--text-muted)] mb-2 block">Stop Sequences</label>
             <div className="flex gap-2 mb-2">
               <input
                 type="text"
@@ -278,11 +278,11 @@ export default function ModelConfig({
                 onChange={(e) => setStopInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addStopSequence()}
                 placeholder="Add stop sequence..."
-                className="flex-1 px-3 py-2 bg-[#27272a] rounded-lg text-sm text-white placeholder-gray-500 outline-none focus:ring-1 focus:ring-purple-500"
+                className="flex-1 px-3 py-2 bg-[var(--bg-tertiary)] rounded-lg text-sm text-[var(--text-primary)] placeholder-[var(--text-dim)] outline-none focus:ring-1 focus:ring-[var(--accent-primary)]"
               />
               <button
                 onClick={addStopSequence}
-                className="px-3 py-2 bg-purple-500 text-white rounded-lg text-sm hover:bg-purple-600 transition-colors"
+                className="px-3 py-2 bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg text-sm hover:bg-[var(--accent-hover)] transition-colors"
               >
                 Add
               </button>
@@ -292,12 +292,12 @@ export default function ModelConfig({
                 {config.stopSequences.map((seq) => (
                   <span
                     key={seq}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-[#27272a] rounded text-xs text-gray-300"
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-tertiary)] rounded text-xs text-[var(--text-secondary)]"
                   >
                     <code>{seq}</code>
                     <button
                       onClick={() => removeStopSequence(seq)}
-                      className="text-gray-500 hover:text-red-400"
+                      className="text-[var(--text-muted)] hover:text-[var(--error)]"
                     >
                       ×
                     </button>
@@ -308,10 +308,10 @@ export default function ModelConfig({
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-[#27272a]">
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--border-primary)]">
             <button
               onClick={handleReset}
-              className="flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white transition-colors"
+              className="flex items-center gap-2 px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
             >
               <RotateCcw size={14} />
               <span className="text-sm">Reset to Defaults</span>
@@ -319,7 +319,7 @@ export default function ModelConfig({
             {onSave && (
               <button
                 onClick={onSave}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
               >
                 <Save size={14} />
                 <span className="text-sm">Save Configuration</span>

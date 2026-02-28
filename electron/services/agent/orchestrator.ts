@@ -22,6 +22,12 @@ import { createPlannerAgent } from './planner';
 import { createExecutorAgent } from './executor';
 import { ToolRegistry } from '../tools/registry';
 import { registerCoreTools } from '../tools/core-tools';
+import { registerGitTools } from '../tools/git-tools';
+import { registerNpmTools } from '../tools/npm-tools';
+import { registerTestTools } from '../tools/test-tools';
+import { registerLintTools } from '../tools/lint-tools';
+import { registerBrowserTools } from '../tools/browser-tools';
+import { registerWebSearchTools } from '../tools/web-search-tool';
 import { SecurityConfig, getSecurityConfig } from '../tools/security';
 import { ModelId } from '../models/types';
 
@@ -80,6 +86,12 @@ export class AgentOrchestrator {
 
     this.toolRegistry = new ToolRegistry();
     registerCoreTools(this.toolRegistry);
+    registerGitTools(this.toolRegistry);
+    registerNpmTools(this.toolRegistry);
+    registerTestTools(this.toolRegistry);
+    registerLintTools(this.toolRegistry);
+    registerBrowserTools(this.toolRegistry);
+    registerWebSearchTools(this.toolRegistry);
 
     this.planner = createPlannerAgent(modeConfig.defaultModel);
     this.executor = createExecutorAgent(modeConfig.defaultModel, this.toolRegistry);

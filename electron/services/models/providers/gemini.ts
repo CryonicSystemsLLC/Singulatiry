@@ -22,6 +22,7 @@ import {
   getModelName
 } from '../types';
 import { GeminiTool } from '../../tools/registry';
+import { handleProviderError, calculateCost as calcCost, readSSELines } from './provider-utils';
 
 interface GeminiContent {
   role: 'user' | 'model';
@@ -117,7 +118,7 @@ export const geminiProvider: ModelProvider = {
     });
 
     if (!response.ok) {
-      throw await handleError(response);
+      throw await handleProviderError(response, 'gemini', (s, m) => s === 400 && m.includes('API key') ? 'INVALID_API_KEY' : m.includes('safety') ? 'CONTENT_FILTERED' as any : null);
     }
 
     const data: GeminiResponse = await response.json();
@@ -151,7 +152,7 @@ export const geminiProvider: ModelProvider = {
         promptTokens: data.usageMetadata.promptTokenCount,
         completionTokens: data.usageMetadata.candidatesTokenCount,
         totalTokens: data.usageMetadata.totalTokenCount,
-        estimatedCost: calculateCost(data.usageMetadata, modelConfig)
+        estimatedCost: calcCost(data.usageMetadata.promptTokenCount, data.usageMetadata.candidatesTokenCount, modelConfig)
       },
       finishReason: mapFinishReason(candidate.finishReason),
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
@@ -189,85 +190,55 @@ export const geminiProvider: ModelProvider = {
     });
 
     if (!response.ok) {
-      throw await handleError(response);
+      throw await handleProviderError(response, 'gemini', (s, m) => s === 400 && m.includes('API key') ? 'INVALID_API_KEY' : m.includes('safety') ? 'CONTENT_FILTERED' as any : null);
     }
 
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new ModelError('No response body', 'NETWORK_ERROR', 'gemini');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
     let fullContent = '';
     let usage: TokenUsage | undefined;
     let finishReason: FinishReason = 'stop';
     const toolCalls: ToolCall[] = [];
 
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+    for await (const line of readSSELines(response, 'gemini')) {
+      if (!line.startsWith('data: ')) continue;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+      try {
+        const data: GeminiStreamResponse = JSON.parse(line.slice(6));
 
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (!trimmed || !trimmed.startsWith('data: ')) continue;
-
-          try {
-            const data: GeminiStreamResponse = JSON.parse(trimmed.slice(6));
-
-            if (data.candidates?.[0]?.content?.parts) {
-              for (const part of data.candidates[0].content.parts) {
-                if (part.text) {
-                  fullContent += part.text;
-                  yield {
-                    type: 'content',
-                    content: part.text
-                  };
-                  request.onChunk?.({ type: 'content', content: part.text });
-                }
-
-                if (part.functionCall) {
-                  const toolCall: ToolCall = {
-                    id: `call_${toolCalls.length}`,
-                    type: 'function',
-                    function: {
-                      name: part.functionCall.name,
-                      arguments: JSON.stringify(part.functionCall.args)
-                    }
-                  };
-                  toolCalls.push(toolCall);
-                  yield {
-                    type: 'tool_call',
-                    toolCall
-                  };
-                }
-              }
+        if (data.candidates?.[0]?.content?.parts) {
+          for (const part of data.candidates[0].content.parts) {
+            if (part.text) {
+              fullContent += part.text;
+              yield { type: 'content', content: part.text };
+              request.onChunk?.({ type: 'content', content: part.text });
             }
 
-            if (data.candidates?.[0]?.finishReason) {
-              finishReason = mapFinishReason(data.candidates[0].finishReason);
-            }
-
-            if (data.usageMetadata) {
-              usage = {
-                promptTokens: data.usageMetadata.promptTokenCount,
-                completionTokens: data.usageMetadata.candidatesTokenCount,
-                totalTokens: data.usageMetadata.totalTokenCount,
-                estimatedCost: calculateCost(data.usageMetadata, modelConfig)
+            if (part.functionCall) {
+              const toolCall: ToolCall = {
+                id: `call_${toolCalls.length}`,
+                type: 'function',
+                function: { name: part.functionCall.name, arguments: JSON.stringify(part.functionCall.args) },
               };
+              toolCalls.push(toolCall);
+              yield { type: 'tool_call', toolCall };
             }
-          } catch {
-            // Skip malformed JSON
           }
         }
+
+        if (data.candidates?.[0]?.finishReason) {
+          finishReason = mapFinishReason(data.candidates[0].finishReason);
+        }
+
+        if (data.usageMetadata) {
+          usage = {
+            promptTokens: data.usageMetadata.promptTokenCount,
+            completionTokens: data.usageMetadata.candidatesTokenCount,
+            totalTokens: data.usageMetadata.totalTokenCount,
+            estimatedCost: calcCost(data.usageMetadata.promptTokenCount, data.usageMetadata.candidatesTokenCount, modelConfig),
+          };
+        }
+      } catch {
+        // Skip malformed JSON
       }
-    } finally {
-      reader.releaseLock();
     }
 
     yield { type: 'done' };
@@ -335,7 +306,7 @@ export const geminiProvider: ModelProvider = {
     });
 
     if (!response.ok) {
-      throw await handleError(response);
+      throw await handleProviderError(response, 'gemini', (s, m) => s === 400 && m.includes('API key') ? 'INVALID_API_KEY' : m.includes('safety') ? 'CONTENT_FILTERED' as any : null);
     }
 
     const data: GeminiResponse = await response.json();
@@ -369,7 +340,7 @@ export const geminiProvider: ModelProvider = {
         promptTokens: data.usageMetadata.promptTokenCount,
         completionTokens: data.usageMetadata.candidatesTokenCount,
         totalTokens: data.usageMetadata.totalTokenCount,
-        estimatedCost: calculateCost(data.usageMetadata, modelConfig)
+        estimatedCost: calcCost(data.usageMetadata.promptTokenCount, data.usageMetadata.candidatesTokenCount, modelConfig)
       },
       finishReason: mapFinishReason(candidate.finishReason),
       toolCalls,
@@ -466,34 +437,6 @@ function convertMessages(messages: ChatRequest['messages'], systemPrompt?: strin
 /**
  * Handle API error
  */
-async function handleError(response: Response): Promise<ModelError> {
-  let message = `API error: ${response.status} ${response.statusText}`;
-  let code: ModelError['code'] = 'PROVIDER_ERROR';
-
-  try {
-    const error = await response.json();
-    message = error.error?.message || error.message || message;
-
-    if (response.status === 400 && message.includes('API key')) {
-      code = 'INVALID_API_KEY';
-    } else if (response.status === 429) {
-      code = 'RATE_LIMITED';
-    } else if (message.includes('safety')) {
-      code = 'CONTENT_FILTERED';
-    }
-  } catch {
-    // Use default message
-  }
-
-  return new ModelError(
-    message,
-    code,
-    'gemini',
-    response.status,
-    response.status === 429 || response.status >= 500
-  );
-}
-
 /**
  * Map Gemini finish reason
  */
@@ -505,21 +448,6 @@ function mapFinishReason(reason: string): 'stop' | 'length' | 'tool_calls' | 'co
     case 'RECITATION': return 'content_filter';
     default: return 'stop';
   }
-}
-
-/**
- * Calculate cost
- */
-function calculateCost(
-  usage: { promptTokenCount: number; candidatesTokenCount: number },
-  modelConfig?: { costPerInputToken: number; costPerOutputToken: number }
-): number | undefined {
-  if (!modelConfig) return undefined;
-
-  const inputCost = (usage.promptTokenCount / 1_000_000) * modelConfig.costPerInputToken;
-  const outputCost = (usage.candidatesTokenCount / 1_000_000) * modelConfig.costPerOutputToken;
-
-  return inputCost + outputCost;
 }
 
 export default geminiProvider;

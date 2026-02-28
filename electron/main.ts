@@ -1,27 +1,41 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, MenuItemConstructorOptions, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions, shell, protocol, net } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { readdir, readFile, writeFile } from 'node:fs/promises'
-import { exec } from 'node:child_process';
+import { readFile, stat as fsStat } from 'node:fs/promises'
 
-// Import new services
+// Service handler records (already-exported from their modules)
 import { keyStorageIpcHandlers } from './services/keychain';
 import { modelServiceIpcHandlers } from './services/models/unified';
 import { orchestratorIpcHandlers } from './services/agent/orchestrator';
-import { AVAILABLE_STACKS, getStackById } from './services/templates/stacks';
 import { devServerIpcHandlers, getDevServerManager } from './services/devserver/manager';
+import { persistenceIpcHandlers, getSessionState } from './services/persistence/store';
+import { gitIpcHandlers } from './services/tools/git-tools';
+import { githubIpcHandlers } from './services/tools/github-tools';
+import { extensionIpcHandlers } from './services/extensions/manager';
+import { extensionHostIpcHandlers, getExtensionHostManager } from './services/extensions/host';
+import { debugIpcHandlers, getDebugClient } from './services/debug/dap-client';
+import { autocompleteIpcHandlers } from './services/ai/autocomplete';
+import { mcpIpcHandlers, getMcpServerManager } from './services/mcp';
+import { getGlobalSandbox } from './services/sandbox/manager';
 
-// Phase 3 & 4 imports
-import { RecipeExecutor } from './services/recipes/executor';
-import { builtinRecipes } from './services/recipes/builtin';
-import { getMetricsCollector } from './services/telemetry/metrics';
-import { getCostTracker } from './services/telemetry/cost-tracker';
-import { getCostLimitGuardrail } from './services/guardrails/cost-limits';
-import { getContentFilter } from './services/guardrails/content-filter';
-import { SandboxManager, getGlobalSandbox, setGlobalSandbox } from './services/sandbox/manager';
-import { getAutomationWatcher } from './services/automation/watcher';
-import { getRateLimiter } from './services/models/rate-limiter';
-import { getResilientExecutor } from './services/models/retry';
+// Extracted handler modules
+import { fsIpcHandlers } from './services/fs/handlers';
+import { registerTerminalHandlers, killTerminalProcess } from './services/terminal/handlers';
+import {
+  recipeIpcHandlers, templateIpcHandlers, metricsIpcHandlers, costIpcHandlers,
+  guardrailIpcHandlers, sandboxIpcHandlers, automationIpcHandlers,
+  rateLimiterIpcHandlers, circuitBreakerIpcHandlers,
+  providerFetchHandlers, createDialogHandlers,
+  registerAutomationEvents, registerAllHandlerRecords, getAutomationWatcherInstance,
+} from './services/ipc-handlers';
+
+// Remote SSH
+import {
+  registerRemoteHandlers,
+  destroyRemoteTerminal,
+  getSSHManager,
+  getRemoteFileWatcher,
+} from './services/remote';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -49,6 +63,11 @@ function createWindow() {
     },
   })
 
+  // Give extension host manager, debug client, and MCP manager the window reference
+  getExtensionHostManager().setWindow(win);
+  getDebugClient().setWindow(win);
+  getMcpServerManager().setWindow(win);
+
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
@@ -68,6 +87,8 @@ function createWindow() {
         { label: 'Open Folder...', accelerator: 'CmdOrCtrl+O', click: () => win?.webContents.send('menu:open-folder') },
         { type: 'separator' },
         { label: 'Save', accelerator: 'CmdOrCtrl+S', click: () => win?.webContents.send('menu:save') },
+        { type: 'separator' },
+        { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: () => win?.webContents.send('menu:settings') },
         { type: 'separator' },
         { role: 'quit' }
       ]
@@ -154,203 +175,40 @@ function createWindow() {
   Menu.setApplicationMenu(menu)
 }
 
-// IPC Handlers
-ipcMain.handle('dialog:openDirectory', async () => {
-  const { canceled, filePaths } = await dialog.showOpenDialog(win!, {
-    properties: ['openDirectory']
-  })
-  if (canceled) {
-    return null
-  } else {
-    return filePaths[0]
-  }
-})
+// ===== IPC Handler Registration =====
+// Bulk-register all handler records (each is a Record<string, handler>)
+registerAllHandlerRecords(ipcMain, [
+  fsIpcHandlers,
+  recipeIpcHandlers,
+  templateIpcHandlers,
+  metricsIpcHandlers,
+  costIpcHandlers,
+  guardrailIpcHandlers,
+  sandboxIpcHandlers,
+  automationIpcHandlers,
+  rateLimiterIpcHandlers,
+  circuitBreakerIpcHandlers,
+  providerFetchHandlers,
+  createDialogHandlers(() => win),
+  keyStorageIpcHandlers,
+  modelServiceIpcHandlers,
+  persistenceIpcHandlers,
+  orchestratorIpcHandlers,
+  devServerIpcHandlers,
+  gitIpcHandlers,
+  githubIpcHandlers,
+  extensionIpcHandlers,
+  extensionHostIpcHandlers,
+  debugIpcHandlers,
+  autocompleteIpcHandlers,
+  mcpIpcHandlers,
+]);
 
-ipcMain.handle('fs:readDir', async (_, dirPath) => {
-  try {
-    const entries = await readdir(dirPath, { withFileTypes: true });
-    return entries.map(entry => ({
-      name: entry.name,
-      isDirectory: entry.isDirectory(),
-      path: path.join(dirPath, entry.name)
-    }));
-  } catch (error) {
-    console.error('Failed to read directory', error);
-    throw error;
-  }
-})
+// Terminal handlers need special registration (uses ipcMain.on for terminal:write)
+registerTerminalHandlers(() => win);
 
-ipcMain.handle('fs:readFile', async (_, filePath) => {
-  return await readFile(filePath, 'utf-8');
-})
-
-ipcMain.handle('fs:writeFile', async (_, filePath, content) => {
-  await writeFile(filePath, content);
-})
-
-// Recursive search helper
-async function searchFiles(dir: string, query: string, maxDepth = 5, currentDepth = 0): Promise<{ path: string, preview: string }[]> {
-  if (currentDepth > maxDepth) return [];
-  if (currentDepth > maxDepth) return [];
-
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    const tasks = entries.map(async (entry) => {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!['node_modules', '.git', 'dist', 'release'].includes(entry.name)) {
-          return await searchFiles(fullPath, query, maxDepth, currentDepth + 1);
-        }
-      } else if (entry.isFile()) {
-        try {
-          const content = await readFile(fullPath, 'utf-8');
-          const index = content.toLowerCase().indexOf(query.toLowerCase());
-          if (index !== -1) {
-            const start = Math.max(0, index - 20);
-            const end = Math.min(content.length, index + 40);
-            const preview = (start > 0 ? '...' : '') + content.substring(start, end).replace(/\n/g, ' ') + (end < content.length ? '...' : '');
-            return [{ path: fullPath, preview }];
-          }
-        } catch { /* ignore */ }
-      }
-      return [] as { path: string, preview: string }[];
-    });
-
-    const results = await Promise.all(tasks);
-    return results.flat();
-  } catch { return []; }
-}
-
-ipcMain.handle('fs:search', async (_, rootPath, query) => {
-  if (!rootPath || !query) return [];
-  return await searchFiles(rootPath, query);
-})
-
-async function listAllFiles(dir: string, maxDepth = 4, currentDepth = 0): Promise<string[]> {
-  if (currentDepth > maxDepth) return [];
-  try {
-    const entries = await readdir(dir, { withFileTypes: true });
-    let files: string[] = [];
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (!['node_modules', '.git', 'dist', 'release', 'build', '.vscode', '.idea'].includes(entry.name)) {
-          // Sequential await to prevent CPU saturation
-          const subFiles = await listAllFiles(fullPath, maxDepth, currentDepth + 1);
-          // Avoid stack overflow from push(...arr)
-          files = files.concat(subFiles);
-        }
-      } else if (entry.isFile()) {
-        files.push(fullPath);
-      }
-    }
-    return files;
-  } catch { return []; }
-}
-
-ipcMain.handle('fs:listAllFiles', async (_, rootPath) => {
-  if (!rootPath) return [];
-  return await listAllFiles(rootPath);
-})
-
-// Terminal Backend
-let terminalProcess: any = null;
-
-ipcMain.handle('terminal:create', () => {
-  if (terminalProcess) {
-    try {
-      terminalProcess.kill();
-    } catch (e) { console.error('Failed to kill terminal', e) }
-  }
-
-  const isWin = process.platform === 'win32';
-  const shell = isWin ? 'powershell.exe' : 'bash';
-  // When using powershell.exe directly, we don't need shell: true usually.
-  const args = isWin ? ['-NoLogo', '-NoExit', '-Command', '-'] : [];
-
-  try {
-    terminalProcess = require('node:child_process').spawn(shell, args, {
-      cwd: process.env.USERPROFILE || process.cwd(),
-      env: process.env,
-      shell: !isWin // On Windows, if we point to an exe (powershell.exe), shell: false is often more stable.
-    });
-
-    terminalProcess.stdout.on('data', (data: any) => {
-      win?.webContents.send('terminal:incoming', data.toString());
-    });
-
-    terminalProcess.stderr.on('data', (data: any) => {
-      win?.webContents.send('terminal:incoming', data.toString());
-    });
-
-    terminalProcess.on('error', (err: any) => {
-      console.error('Terminal spawn error', err);
-      win?.webContents.send('terminal:incoming', `\r\nError launching shell: ${err.message}`);
-    });
-
-    terminalProcess.on('exit', (code: number) => {
-      win?.webContents.send('terminal:incoming', `\r\nSession Ended (Code: ${code})`);
-      terminalProcess = null;
-    });
-
-    // Explicitly confirm creation
-    return true;
-  } catch (e: any) {
-    console.error('Failed to spawn terminal', e);
-    return false;
-  }
-});
-
-ipcMain.on('terminal:write', (_, data) => {
-  if (terminalProcess && terminalProcess.stdin) {
-    terminalProcess.stdin.write(data);
-  }
-});
-
-// OS Command Runner (One-off)
-ipcMain.handle('os:runCommand', async (_, command, cwd) => {
-  return new Promise((resolve) => {
-    exec(command, { cwd }, (error, stdout, stderr) => {
-      if (error) {
-        resolve({ success: false, output: stderr || error.message });
-      } else {
-        resolve({ success: true, output: stdout });
-      }
-    });
-  });
-})
-
-// Register Key Storage IPC Handlers
-for (const [channel, handler] of Object.entries(keyStorageIpcHandlers)) {
-  ipcMain.handle(channel, handler);
-}
-
-// Register Model Service IPC Handlers
-for (const [channel, handler] of Object.entries(modelServiceIpcHandlers)) {
-  ipcMain.handle(channel, handler);
-}
-
-// Register Agent Orchestrator IPC Handlers
-for (const [channel, handler] of Object.entries(orchestratorIpcHandlers)) {
-  if (typeof handler === 'function') {
-    ipcMain.handle(channel, handler as any);
-  }
-}
-
-// Stack Templates IPC Handler
-ipcMain.handle('templates:get-stacks', () => {
-  return AVAILABLE_STACKS;
-});
-
-ipcMain.handle('templates:get-stack', (_, stackId: string) => {
-  return getStackById(stackId);
-});
-
-// Register Dev Server IPC Handlers
-for (const [channel, handler] of Object.entries(devServerIpcHandlers)) {
-  ipcMain.handle(channel, handler as any);
-}
+// Forward automation events to renderer
+registerAutomationEvents(() => win);
 
 // Forward dev server events to renderer
 const devServerManager = getDevServerManager();
@@ -358,268 +216,57 @@ devServerManager.on('event', (event) => {
   win?.webContents.send('devserver:event', event);
 });
 
-// ===== Recipe System IPC Handlers =====
-let recipeExecutor: RecipeExecutor | null = null;
-
-function getRecipeExecutor(): RecipeExecutor {
-  if (!recipeExecutor) {
-    recipeExecutor = new RecipeExecutor();
-  }
-  return recipeExecutor;
-}
-
-ipcMain.handle('recipe:list', () => {
-  return builtinRecipes;
-});
-
-ipcMain.handle('recipe:get', (_, recipeId: string) => {
-  return builtinRecipes.find((r: any) => r.id === recipeId) || null;
-});
-
-ipcMain.handle('recipe:execute', async (_, recipeId: string, params: Record<string, any>, projectRoot: string, stackId?: string) => {
-  const executor = getRecipeExecutor();
-  const recipe = builtinRecipes.find((r: any) => r.id === recipeId);
-  if (!recipe) {
-    return { success: false, error: 'Recipe not found' };
-  }
+// Streaming IPC handler — sends chunks via webContents.send (needs event.sender)
+ipcMain.handle('model:stream', async (event, request) => {
+  const { getModelService: getService } = await import('./services/models/unified');
+  const service = getService();
+  const sender = event.sender;
 
   try {
-    const result = await executor.execute(recipe, {
-      projectRoot,
-      stackId: stackId || 'nextjs-prisma',
-      parameters: params,
-      variables: {},
-      dryRun: false
-    });
-    return result;
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-});
+    const generator = service.stream(request);
+    let finalResponse = null;
 
-ipcMain.handle('recipe:rollback', async () => {
-  const executor = getRecipeExecutor();
-  await executor.rollback();
-  return { success: true };
-});
+    while (true) {
+      const { value, done } = await generator.next();
+      if (done) {
+        finalResponse = value;
+        break;
+      }
+      // Send each chunk to renderer
+      sender.send('model:stream-chunk', value);
+    }
 
-// ===== Telemetry & Metrics IPC Handlers =====
-const metricsCollector = getMetricsCollector();
-const costTracker = getCostTracker();
-
-ipcMain.handle('metrics:start-session', (_, projectId?: string) => {
-  return metricsCollector.startSession(projectId);
-});
-
-ipcMain.handle('metrics:end-session', (_, projectId?: string) => {
-  return metricsCollector.endSession(projectId);
-});
-
-ipcMain.handle('metrics:get-session', () => {
-  return metricsCollector.getCurrentSessionMetrics();
-});
-
-ipcMain.handle('metrics:get-global', () => {
-  return metricsCollector.getGlobalMetrics();
-});
-
-ipcMain.handle('metrics:get-project', (_, projectId: string) => {
-  return metricsCollector.getProjectMetrics(projectId);
-});
-
-ipcMain.handle('metrics:export', () => {
-  return metricsCollector.exportMetrics();
-});
-
-// Cost Tracking
-ipcMain.handle('costs:get-session', () => {
-  return costTracker.getSessionCosts();
-});
-
-ipcMain.handle('costs:get-daily', () => {
-  return costTracker.getDailyCosts();
-});
-
-ipcMain.handle('costs:get-budget-status', () => {
-  return costTracker.getBudgetStatus();
-});
-
-ipcMain.handle('costs:set-budget', (_, budget: any) => {
-  costTracker.setBudget(budget);
-  return { success: true };
-});
-
-ipcMain.handle('costs:calculate', (_, model: string, inputTokens: number, outputTokens: number) => {
-  return costTracker.calculateCost(model, inputTokens, outputTokens);
-});
-
-// ===== Guardrails IPC Handlers =====
-const costGuardrail = getCostLimitGuardrail();
-const contentFilter = getContentFilter();
-
-ipcMain.handle('guardrails:check-cost', async (_, estimatedCost: number) => {
-  return costGuardrail.checkRequest(estimatedCost);
-});
-
-ipcMain.handle('guardrails:get-cost-status', () => {
-  return costGuardrail.getCostStatus();
-});
-
-ipcMain.handle('guardrails:set-cost-config', (_, config: any) => {
-  costGuardrail.updateConfig(config);
-  return { success: true };
-});
-
-ipcMain.handle('guardrails:filter-content', (_, content: string) => {
-  return contentFilter.filter(content);
-});
-
-ipcMain.handle('guardrails:filter-code', (_, code: string, language?: string) => {
-  return contentFilter.filterCode(code, language);
-});
-
-ipcMain.handle('guardrails:set-mode', (_, mode: 'kid' | 'pro') => {
-  contentFilter.setMode(mode);
-  return { success: true };
-});
-
-ipcMain.handle('guardrails:get-config', () => {
-  return contentFilter.getConfig();
-});
-
-// ===== Sandbox IPC Handlers =====
-ipcMain.handle('sandbox:execute', async (_, command: string, options?: any) => {
-  const sandbox = getGlobalSandbox();
-  return sandbox.execute(command, options);
-});
-
-ipcMain.handle('sandbox:check-command', (_, command: string) => {
-  const sandbox = getGlobalSandbox();
-  return sandbox.isCommandAllowed(command);
-});
-
-ipcMain.handle('sandbox:check-path', (_, targetPath: string) => {
-  const sandbox = getGlobalSandbox();
-  return sandbox.isPathAllowed(targetPath);
-});
-
-ipcMain.handle('sandbox:set-mode', (_, mode: 'pro' | 'kid', projectRoot?: string) => {
-  const sandbox = SandboxManager.forProject(projectRoot || process.cwd(), mode);
-  setGlobalSandbox(sandbox);
-  return { success: true };
-});
-
-ipcMain.handle('sandbox:get-active', () => {
-  const sandbox = getGlobalSandbox();
-  return sandbox.getActiveProcesses();
-});
-
-ipcMain.handle('sandbox:kill', (_, pid: number) => {
-  const sandbox = getGlobalSandbox();
-  return sandbox.kill(pid);
-});
-
-ipcMain.handle('sandbox:kill-all', () => {
-  const sandbox = getGlobalSandbox();
-  return sandbox.killAll();
-});
-
-// ===== Automation Watcher IPC Handlers =====
-const automationWatcher = getAutomationWatcher();
-
-ipcMain.handle('automation:start', (_, projectRoot?: string) => {
-  if (projectRoot) {
-    automationWatcher['config'].projectRoot = projectRoot;
-  }
-  automationWatcher.start();
-  return { success: true };
-});
-
-ipcMain.handle('automation:stop', () => {
-  automationWatcher.stop();
-  return { success: true };
-});
-
-ipcMain.handle('automation:get-triggers', () => {
-  return automationWatcher.getTriggers();
-});
-
-ipcMain.handle('automation:add-trigger', (_, trigger: any) => {
-  automationWatcher.addTrigger(trigger);
-  return { success: true };
-});
-
-ipcMain.handle('automation:remove-trigger', (_, triggerId: string) => {
-  return automationWatcher.removeTrigger(triggerId);
-});
-
-ipcMain.handle('automation:set-trigger-enabled', (_, triggerId: string, enabled: boolean) => {
-  return automationWatcher.setTriggerEnabled(triggerId, enabled);
-});
-
-ipcMain.handle('automation:trigger-event', async (_, type: any, metadata?: any) => {
-  return automationWatcher.triggerEvent(type, metadata);
-});
-
-// Forward automation events to renderer
-automationWatcher.on('trigger:executed', (data) => {
-  win?.webContents.send('automation:trigger-executed', data);
-});
-
-automationWatcher.on('file:change', (data) => {
-  win?.webContents.send('automation:file-change', data);
-});
-
-automationWatcher.on('notification', (data) => {
-  win?.webContents.send('automation:notification', data);
-});
-
-// ===== Rate Limiter IPC Handlers =====
-const rateLimiter = getRateLimiter();
-
-ipcMain.handle('ratelimit:check', (_, provider: string, tokens?: number) => {
-  return rateLimiter.canMakeRequest(provider, tokens);
-});
-
-ipcMain.handle('ratelimit:acquire', async (_, provider: string, tokens?: number) => {
-  try {
-    await rateLimiter.acquire(provider, tokens);
+    sender.send('model:stream-done', finalResponse);
     return { success: true };
   } catch (error: any) {
+    sender.send('model:stream-error', { message: error.message, code: error.code });
     return { success: false, error: error.message };
   }
 });
 
-ipcMain.handle('ratelimit:get-stats', (_, provider: string) => {
-  return rateLimiter.getUsageStats(provider);
-});
-
-ipcMain.handle('ratelimit:set-config', (_, provider: string, config: any) => {
-  rateLimiter.setConfig(provider, config);
-  return { success: true };
-});
-
-// ===== Circuit Breaker IPC Handlers =====
-const resilientExecutor = getResilientExecutor();
-
-ipcMain.handle('circuit:get-states', () => {
-  return resilientExecutor.getAllCircuitStates();
-});
-
-ipcMain.handle('circuit:reset', (_, provider: string) => {
-  resilientExecutor.resetCircuit(provider);
-  return { success: true };
-});
-
-ipcMain.handle('circuit:reset-all', () => {
-  resilientExecutor.resetAllCircuits();
-  return { success: true };
-});
+// Remote SSH IPC Handlers
+registerRemoteHandlers();
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
+  // Cleanup: stop background services
+  try {
+    killTerminalProcess();
+    getRemoteFileWatcher().stop();
+    destroyRemoteTerminal();
+    getSSHManager().disconnectAll();
+    getAutomationWatcherInstance().stop();
+    devServerManager.removeAllListeners();
+    getExtensionHostManager().stopAll();
+    getMcpServerManager().stopAll().catch(() => {});
+    getDebugClient().terminate().catch(() => {});
+    getGlobalSandbox().killAll();
+  } catch (e) {
+    console.error('Cleanup error:', e);
+  }
+
   if (process.platform !== 'darwin') {
     app.quit()
     win = null
@@ -637,4 +284,402 @@ app.on('activate', () => {
 // PERFORMANCE FIX: Disable GPU Acceleration to fix sluggish UI/Menu on Windows
 app.disableHardwareAcceleration();
 
-app.whenReady().then(createWindow)
+// ===== Register singularity:// protocol for OAuth/URI handler callbacks =====
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('singularity', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('singularity');
+}
+
+function handleProtocolUrl(url: string) {
+  try {
+    // URL format: singularity://extensionId/path?query
+    const parsed = new URL(url);
+    const extensionId = parsed.hostname;
+    if (extensionId) {
+      console.log(`[Protocol] Deep link received: ${url} → extension ${extensionId}`);
+      const mgr = getExtensionHostManager();
+      mgr.sendToHost(extensionId, { type: 'uri:handle', data: { extensionId, uri: url } });
+    }
+  } catch (e: any) {
+    console.error('[Protocol] Failed to handle protocol URL:', e.message);
+  }
+}
+
+// Windows: deep links arrive via second-instance event (single instance lock)
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = argv.find(a => a.startsWith('singularity://'));
+    if (url) handleProtocolUrl(url);
+    // Focus existing window
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+}
+
+// macOS: deep links via open-url event
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  handleProtocolUrl(url);
+});
+
+// Register custom protocol for serving extension webview files
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'singularity-ext',
+  privileges: {
+    standard: true,
+    secure: true,
+    supportFetchAPI: true,
+    corsEnabled: true,
+    stream: true,
+  }
+}]);
+
+app.whenReady().then(async () => {
+  // Register the protocol handler for extension webview files
+  const extensionsDir = path.join(app.getPath('userData'), 'extensions');
+  const mimeTypes: Record<string, string> = {
+    '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
+    '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.gif': 'image/gif',
+    '.woff': 'font/woff', '.woff2': 'font/woff2', '.ttf': 'font/ttf',
+    '.wasm': 'application/wasm',
+  };
+
+  // VS Code API shim injected into extension webview HTML
+  // Bridges messages between the webview iframe and the parent renderer,
+  // which in turn forwards them to the real extension host process via IPC.
+  const vscodeApiShim = `<script>
+(function() {
+  var _state = {};
+  var vscodeApi = {
+    postMessage: function(msg) {
+      // Send to parent renderer — it will forward to the extension host via IPC
+      window.parent.postMessage({ type: 'extension-to-host', payload: msg }, '*');
+    },
+    getState: function() {
+      try {
+        var saved = sessionStorage.getItem('vscode-webview-state');
+        if (saved) return JSON.parse(saved);
+      } catch(e) {}
+      return _state;
+    },
+    setState: function(s) {
+      _state = s;
+      try { sessionStorage.setItem('vscode-webview-state', JSON.stringify(s)); } catch(e) {}
+      return s;
+    },
+  };
+  var _acquired = false;
+  window.acquireVsCodeApi = function() {
+    if (_acquired) return vscodeApi;
+    _acquired = true;
+    return vscodeApi;
+  };
+
+  // Listen for messages from the extension host (forwarded by parent renderer)
+  window.addEventListener('message', function(e) {
+    if (e.data && e.data.type === 'host-to-webview') {
+      // Re-dispatch as a plain message event for the extension webview JS
+      window.dispatchEvent(new MessageEvent('message', { data: e.data.payload, origin: window.location.origin, source: window }));
+    }
+  });
+
+  // Set VS Code theme CSS variables
+  var ds = document.documentElement.style;
+  var vars = {
+    '--vscode-editor-background': '#0d0d12',
+    '--vscode-editor-foreground': '#e0e0e0',
+    '--vscode-sideBar-background': '#111118',
+    '--vscode-sideBar-foreground': '#e0e0e0',
+    '--vscode-input-background': '#1a1a24',
+    '--vscode-input-foreground': '#e0e0e0',
+    '--vscode-input-border': '#2a2a3a',
+    '--vscode-input-placeholderForeground': '#666680',
+    '--vscode-button-background': '#6366f1',
+    '--vscode-button-foreground': '#ffffff',
+    '--vscode-button-hoverBackground': '#818cf8',
+    '--vscode-button-secondaryBackground': '#2a2a3a',
+    '--vscode-button-secondaryForeground': '#e0e0e0',
+    '--vscode-focusBorder': '#6366f1',
+    '--vscode-foreground': '#e0e0e0',
+    '--vscode-descriptionForeground': '#a0a0b0',
+    '--vscode-errorForeground': '#ef4444',
+    '--vscode-textLink-foreground': '#818cf8',
+    '--vscode-textLink-activeForeground': '#a5b4fc',
+    '--vscode-badge-background': '#6366f1',
+    '--vscode-badge-foreground': '#ffffff',
+    '--vscode-list-activeSelectionBackground': '#2a2a3a',
+    '--vscode-list-activeSelectionForeground': '#ffffff',
+    '--vscode-list-hoverBackground': '#1a1a24',
+    '--vscode-panel-background': '#0d0d12',
+    '--vscode-panel-border': '#2a2a3a',
+    '--vscode-panelTitle-activeForeground': '#e0e0e0',
+    '--vscode-panelTitle-inactiveForeground': '#666680',
+    '--vscode-widget-shadow': 'rgba(0,0,0,0.36)',
+    '--vscode-scrollbarSlider-background': 'rgba(255,255,255,0.1)',
+    '--vscode-scrollbarSlider-hoverBackground': 'rgba(255,255,255,0.15)',
+    '--vscode-scrollbarSlider-activeBackground': 'rgba(255,255,255,0.2)',
+    '--vscode-font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    '--vscode-font-size': '13px',
+    '--vscode-editor-font-family': '"Cascadia Code", "Fira Code", Consolas, monospace',
+    '--vscode-editor-font-size': '14px',
+    '--vscode-checkbox-background': '#1a1a24',
+    '--vscode-checkbox-border': '#2a2a3a',
+    '--vscode-dropdown-background': '#1a1a24',
+    '--vscode-dropdown-border': '#2a2a3a',
+    '--vscode-dropdown-foreground': '#e0e0e0',
+    '--vscode-settings-checkboxBackground': '#1a1a24',
+    '--vscode-settings-checkboxBorder': '#2a2a3a',
+    '--vscode-settings-dropdownBackground': '#1a1a24',
+    '--vscode-settings-textInputBackground': '#1a1a24',
+    '--vscode-welcomePage-tileBackground': '#1a1a24',
+    '--vscode-progressBar-background': '#6366f1',
+    '--vscode-tab-activeBackground': '#1a1a24',
+    '--vscode-tab-inactiveBackground': '#111118',
+    '--vscode-tab-border': '#2a2a3a',
+    '--vscode-statusBar-background': '#111118',
+    '--vscode-titleBar-activeBackground': '#111118',
+    // Menu / popup / quick-pick variables — needed for slash command dropdowns etc.
+    '--vscode-menu-background': '#1a1a24',
+    '--vscode-menu-foreground': '#e0e0e0',
+    '--vscode-menu-selectionBackground': '#2a2a3a',
+    '--vscode-menu-selectionForeground': '#ffffff',
+    '--vscode-menu-separatorBackground': '#2a2a3a',
+    '--vscode-menu-border': '#2a2a3a',
+    '--vscode-quickInput-background': '#1a1a24',
+    '--vscode-quickInput-foreground': '#e0e0e0',
+    '--vscode-quickInputList-focusBackground': '#2a2a3a',
+    '--vscode-quickInputList-focusForeground': '#ffffff',
+    '--vscode-quickInputTitle-background': '#1a1a24',
+    '--vscode-editorWidget-background': '#1a1a24',
+    '--vscode-editorWidget-foreground': '#e0e0e0',
+    '--vscode-editorWidget-border': '#2a2a3a',
+    '--vscode-editorSuggestWidget-background': '#1a1a24',
+    '--vscode-editorSuggestWidget-foreground': '#e0e0e0',
+    '--vscode-editorSuggestWidget-selectedBackground': '#2a2a3a',
+    '--vscode-editorSuggestWidget-highlightForeground': '#818cf8',
+    '--vscode-editorSuggestWidget-border': '#2a2a3a',
+    '--vscode-editorHoverWidget-background': '#1a1a24',
+    '--vscode-editorHoverWidget-foreground': '#e0e0e0',
+    '--vscode-editorHoverWidget-border': '#2a2a3a',
+    '--vscode-notifications-background': '#1a1a24',
+    '--vscode-notifications-foreground': '#e0e0e0',
+    '--vscode-notificationCenter-border': '#2a2a3a',
+    '--vscode-commandCenter-background': '#1a1a24',
+    '--vscode-commandCenter-foreground': '#e0e0e0',
+    '--vscode-commandCenter-border': '#2a2a3a',
+    '--vscode-commandCenter-activeBackground': '#2a2a3a',
+    '--vscode-commandCenter-activeForeground': '#ffffff',
+    '--vscode-list-focusBackground': '#2a2a3a',
+    '--vscode-list-focusForeground': '#ffffff',
+    '--vscode-list-inactiveSelectionBackground': '#1a1a24',
+    '--vscode-list-highlightForeground': '#818cf8',
+  };
+  for (var k in vars) ds.setProperty(k, vars[k]);
+  // Ensure html/body fill the iframe viewport so extension layouts work correctly
+  // (flex containers, absolute/fixed popups like slash command menus, etc.)
+  var style = document.createElement('style');
+  style.textContent = 'html, body { width: 100%; height: 100%; overflow: hidden; margin: 0; padding: 0; }';
+  document.head.appendChild(style);
+  document.body.style.backgroundColor = 'var(--vscode-editor-background, #0d0d12)';
+  document.body.style.color = 'var(--vscode-editor-foreground, #e0e0e0)';
+})();
+</script>`;
+
+  protocol.handle('singularity-ext', async (request) => {
+    try {
+      const url = new URL(request.url);
+      const extId = url.hostname;
+      let filePath = decodeURIComponent(url.pathname).replace(/^\//, '');
+
+      // Security: prevent directory traversal
+      if (filePath.includes('..') && !filePath.startsWith('_exthost_webview/')) {
+        return new Response('Forbidden', { status: 403 });
+      }
+
+      // ===== Dynamic webview HTML (served from extension host memory) =====
+      // Path format: _exthost_webview/{encodedPanelId}
+      if (filePath.startsWith('_exthost_webview/')) {
+        const panelId = decodeURIComponent(filePath.substring('_exthost_webview/'.length));
+        const mgr = getExtensionHostManager();
+        console.log(`[Protocol] Serving webview HTML: extId=${extId}, panelId=${panelId}`);
+        let html = mgr.getWebviewHtml(extId, panelId);
+
+        if (!html) {
+          console.error(`[Protocol] Webview HTML not found for extId=${extId}, panelId=${panelId}`);
+          return new Response('Webview HTML not available', { status: 404 });
+        }
+        console.log(`[Protocol] Found webview HTML: ${html.length} bytes`);
+
+        // Strip existing Content-Security-Policy meta tags — we handle security via
+        // the iframe sandbox attribute and the custom protocol's isolation
+        html = html.replace(/<meta\s+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, '');
+
+        // Remove nonce attributes from script/style/link tags so our injected shim works
+        html = html.replace(/\s+nonce="[^"]*"/gi, '');
+
+        // Remove crossorigin attributes (they fail with custom protocols)
+        html = html.replace(/\s+crossorigin/gi, '');
+
+        // Only inject base tag if the extension didn't already include one
+        const hasBase = /<base\s+/i.test(html);
+        const baseUrl = `singularity-ext://${extId}/`;
+        const baseTag = hasBase ? '' : `<base href="${baseUrl}" />`;
+
+        // Inject shim (+ base tag if needed) into the HTML
+        const injection = baseTag + vscodeApiShim;
+        if (html.includes('<head>')) {
+          html = html.replace('<head>', '<head>' + injection);
+        } else if (html.includes('<head')) {
+          html = html.replace(/<head([^>]*)>/, '<head$1>' + injection);
+        } else if (html.includes('<!DOCTYPE') || html.includes('<html')) {
+          html = html.replace(/<html([^>]*)>/, '<html$1><head>' + injection + '</head>');
+        } else {
+          html = '<!DOCTYPE html><html><head>' + injection + '</head><body>' + html + '</body></html>';
+        }
+
+        return new Response(html, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
+
+      // ===== Static file serving =====
+      // Try direct path first, then fallback directories for extensions
+      // that use relative paths from subdirectories (e.g., webview/index.html referencing ./assets/X.js)
+      const extensionBase = path.join(extensionsDir, extId, 'extension');
+      const directPath = path.join(extensionBase, filePath);
+
+      // Fallback directories to search if file not found at direct path
+      const fallbackDirs = ['webview', 'dist', 'out', 'media', 'build', 'resources'];
+
+      let fullPath = directPath;
+      let found = false;
+      try {
+        const s = await fsStat(directPath);
+        if (s.isFile()) found = true;
+      } catch {}
+
+      if (!found) {
+        // Try each fallback directory
+        for (const dir of fallbackDirs) {
+          const candidate = path.join(extensionBase, dir, filePath);
+          try {
+            const s = await fsStat(candidate);
+            if (s.isFile()) {
+              fullPath = candidate;
+              found = true;
+              break;
+            }
+          } catch {}
+        }
+      }
+
+      const ext = path.extname(fullPath).toLowerCase();
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      // For HTML files: inject the VS Code API shim and base tag
+      if (ext === '.html') {
+        let html = await readFile(fullPath, 'utf-8');
+
+        // Strip CSP meta tags (same as dynamic HTML)
+        html = html.replace(/<meta\s+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, '');
+        html = html.replace(/\s+nonce="[^"]*"/gi, '');
+
+        // Inject base tag for resolving relative URLs
+        const baseDir = filePath.substring(0, filePath.lastIndexOf('/') + 1);
+        const baseUrl = `singularity-ext://${extId}/${baseDir}`;
+        const baseTag = `<base href="${baseUrl}" />`;
+
+        // Remove crossorigin attributes (they fail with custom protocols)
+        html = html.replace(/\s+crossorigin/gi, '');
+
+        // Inject shim + base tag after <head>
+        if (html.includes('<head>')) {
+          html = html.replace('<head>', '<head>' + baseTag + vscodeApiShim);
+        } else if (html.includes('<head')) {
+          html = html.replace(/<head([^>]*)>/, '<head$1>' + baseTag + vscodeApiShim);
+        } else {
+          html = baseTag + vscodeApiShim + html;
+        }
+
+        return new Response(html, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+
+      // For non-HTML files: serve directly
+      const fileUrl = `file:///${fullPath.replace(/\\/g, '/')}`;
+      const response = await net.fetch(fileUrl);
+
+      return new Response(response.body, {
+        status: response.status,
+        headers: {
+          'Content-Type': contentType,
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    } catch {
+      return new Response('Not Found', { status: 404 });
+    }
+  });
+
+  createWindow();
+  // Backfill extension contributions for extensions installed before parsing was added
+  try { await extensionIpcHandlers['extensions:backfill-contributions'](null); } catch {}
+
+  // Preload sidebar extension hosts shortly after window creation so they're
+  // ready before the user clicks a sidebar icon (eliminates cold-start delay).
+  setTimeout(async () => {
+    try {
+      const installed: any[] = await extensionIpcHandlers['extensions:list-installed'](null);
+      const sidebarExts = installed.filter((ext: any) => ext.contributions?.viewsContainers?.length);
+      if (sidebarExts.length === 0) return;
+
+      const session = getSessionState();
+      const projectRoot = session.lastProjectRoot || '';
+      const hostMgr = getExtensionHostManager();
+
+      for (let i = 0; i < sidebarExts.length; i++) {
+        const ext = sidebarExts[i];
+        if (!hostMgr.isRunning(ext.id)) {
+          // Stagger by 200ms to reduce CPU contention during require()
+          setTimeout(() => {
+            hostMgr.start(ext.id, projectRoot).catch(() => {});
+          }, i * 200);
+        }
+      }
+    } catch {
+      // Extension preloading is best-effort
+    }
+  }, 500);
+
+  // Check for extension updates after a short delay (don't block startup)
+  setTimeout(async () => {
+    try {
+      const updates = await extensionIpcHandlers['extensions:check-updates'](null);
+      if (updates.length > 0 && win) {
+        console.log(`[ExtUpdater] ${updates.length} extension update(s) available:`, updates.map((u: any) => `${u.id} ${u.currentVersion} → ${u.latestVersion}`).join(', '));
+        win.webContents.send('extensions:updates-available', updates);
+      }
+    } catch (e: any) {
+      console.warn('[ExtUpdater] Failed to check for updates:', e.message);
+    }
+  }, 10000); // 10 seconds after startup
+})

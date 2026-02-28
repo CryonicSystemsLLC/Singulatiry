@@ -1,412 +1,471 @@
-import { useState, useRef, useEffect } from 'react';
-import {
-  ChevronDown,
-  Zap,
-  DollarSign,
-  Brain,
-  Clock,
-  Check,
-  Sparkles
-} from 'lucide-react';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { ChevronDown, ChevronLeft, Check, Brain, Key, Server, Pencil, Loader2, AlertCircle } from 'lucide-react';
 
-export interface ModelInfo {
+// ── Providers ────────────────────────────────────────────────────────────────
+
+interface Provider {
   id: string;
   name: string;
-  provider: string;
-  contextWindow: number;
-  maxOutputTokens?: number;
-  inputCostPer1M: number;
-  outputCostPer1M: number;
-  capabilities: {
-    toolCalling: boolean;
-    streaming: boolean;
-    vision?: boolean;
-    caching?: boolean;
-  };
-  speed: 'fast' | 'medium' | 'slow';
-  quality: 'standard' | 'high' | 'premium';
-  recommended?: boolean;
+  color: string;
 }
 
-const MODELS: ModelInfo[] = [
-  // OpenAI
-  {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    provider: 'OpenAI',
-    contextWindow: 128000,
-    maxOutputTokens: 16384,
-    inputCostPer1M: 2.50,
-    outputCostPer1M: 10.00,
-    capabilities: { toolCalling: true, streaming: true, vision: true, caching: true },
-    speed: 'fast',
-    quality: 'premium',
-    recommended: true
-  },
-  {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o Mini',
-    provider: 'OpenAI',
-    contextWindow: 128000,
-    maxOutputTokens: 16384,
-    inputCostPer1M: 0.15,
-    outputCostPer1M: 0.60,
-    capabilities: { toolCalling: true, streaming: true, vision: true, caching: true },
-    speed: 'fast',
-    quality: 'standard'
-  },
-
-  // Anthropic
-  {
-    id: 'claude-3-5-sonnet-20241022',
-    name: 'Claude 3.5 Sonnet',
-    provider: 'Anthropic',
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    inputCostPer1M: 3.00,
-    outputCostPer1M: 15.00,
-    capabilities: { toolCalling: true, streaming: true, vision: true, caching: true },
-    speed: 'fast',
-    quality: 'premium',
-    recommended: true
-  },
-  {
-    id: 'claude-3-5-haiku-20241022',
-    name: 'Claude 3.5 Haiku',
-    provider: 'Anthropic',
-    contextWindow: 200000,
-    maxOutputTokens: 8192,
-    inputCostPer1M: 1.00,
-    outputCostPer1M: 5.00,
-    capabilities: { toolCalling: true, streaming: true, vision: true, caching: true },
-    speed: 'fast',
-    quality: 'standard'
-  },
-  {
-    id: 'claude-3-opus-20240229',
-    name: 'Claude 3 Opus',
-    provider: 'Anthropic',
-    contextWindow: 200000,
-    maxOutputTokens: 4096,
-    inputCostPer1M: 15.00,
-    outputCostPer1M: 75.00,
-    capabilities: { toolCalling: true, streaming: true, vision: true, caching: true },
-    speed: 'slow',
-    quality: 'premium'
-  },
-
-  // Google
-  {
-    id: 'gemini-2.0-flash',
-    name: 'Gemini 2.0 Flash',
-    provider: 'Google',
-    contextWindow: 1000000,
-    inputCostPer1M: 0.10,
-    outputCostPer1M: 0.40,
-    capabilities: { toolCalling: true, streaming: true, vision: true },
-    speed: 'fast',
-    quality: 'high'
-  },
-  {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
-    provider: 'Google',
-    contextWindow: 2000000,
-    inputCostPer1M: 1.25,
-    outputCostPer1M: 5.00,
-    capabilities: { toolCalling: true, streaming: true, vision: true },
-    speed: 'medium',
-    quality: 'premium'
-  },
-
-  // xAI
-  {
-    id: 'grok-2',
-    name: 'Grok 2',
-    provider: 'xAI',
-    contextWindow: 131072,
-    inputCostPer1M: 2.00,
-    outputCostPer1M: 10.00,
-    capabilities: { toolCalling: false, streaming: true },
-    speed: 'fast',
-    quality: 'high'
-  },
-
-  // DeepSeek
-  {
-    id: 'deepseek-chat',
-    name: 'DeepSeek Chat',
-    provider: 'DeepSeek',
-    contextWindow: 64000,
-    inputCostPer1M: 0.14,
-    outputCostPer1M: 0.28,
-    capabilities: { toolCalling: false, streaming: true, caching: true },
-    speed: 'fast',
-    quality: 'high'
-  },
-
-  // Qwen
-  {
-    id: 'qwen-plus',
-    name: 'Qwen Plus',
-    provider: 'Qwen',
-    contextWindow: 32000,
-    inputCostPer1M: 0.80,
-    outputCostPer1M: 2.00,
-    capabilities: { toolCalling: false, streaming: true },
-    speed: 'fast',
-    quality: 'standard'
-  }
+const PROVIDERS: Provider[] = [
+  { id: 'openai',    name: 'OpenAI',    color: '#10a37f' },
+  { id: 'anthropic', name: 'Anthropic', color: '#d4a27f' },
+  { id: 'gemini',    name: 'Google',    color: '#4285f4' },
+  { id: 'xai',       name: 'xAI',       color: '#1da1f2' },
+  { id: 'deepseek',  name: 'DeepSeek',  color: '#4d6bfe' },
+  { id: 'qwen',      name: 'Qwen',      color: '#6f42c1' },
+  { id: 'kimi',      name: 'Moonshot',  color: '#ff6b35' },
+  { id: 'mistral',   name: 'Mistral',   color: '#ff7000' },
+  { id: 'cohere',    name: 'Cohere',    color: '#39594d' },
 ];
 
-interface ModelSelectorProps {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+export function parseSelection(sel: string): { providerId: string; model: string } {
+  const idx = sel.indexOf(':');
+  if (idx === -1) return { providerId: 'anthropic', model: sel };
+  return { providerId: sel.substring(0, idx), model: sel.substring(idx + 1) };
+}
+
+function fmt(providerId: string, model: string) { return `${providerId}:${model}`; }
+
+function getProvider(id: string) { return PROVIDERS.find(p => p.id === id); }
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface FetchedModel {
+  id: string;
+  name: string;
+}
+
+type ViewState = 'providers' | 'api-key' | 'loading' | 'models' | 'custom';
+
+// ── Component ────────────────────────────────────────────────────────────────
+
+interface Props {
   selectedModel: string;
-  onModelChange: (modelId: string) => void;
+  onModelChange: (id: string) => void;
+  compact?: boolean;
   availableProviders?: string[];
   showCost?: boolean;
   showCapabilities?: boolean;
-  compact?: boolean;
 }
 
-export default function ModelSelector({
-  selectedModel,
-  onModelChange,
-  availableProviders,
-  showCost = true,
-  showCapabilities = true,
-  compact = false
-}: ModelSelectorProps) {
+export default function ModelSelector({ selectedModel, onModelChange }: Props) {
+  const { providerId, model } = parseSelection(selectedModel);
+  const provider = getProvider(providerId);
+
   const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState<string | null>(null);
+  const [view, setView] = useState<ViewState>('providers');
+  const [activeProvider, setActiveProvider] = useState<string | null>(null);
+  const [keyInput, setKeyInput] = useState('');
+  const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [configuredKeys, setConfiguredKeys] = useState<Record<string, boolean>>({});
+  const [modelCache, setModelCache] = useState<Record<string, FetchedModel[]>>({});
+  const [customUrl, setCustomUrl] = useState('');
+  const [customModel, setCustomModel] = useState('');
+
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const keyInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedModelInfo = MODELS.find(m => m.id === selectedModel);
-
-  // Filter models by available providers
-  const filteredModels = MODELS.filter(model => {
-    if (availableProviders && !availableProviders.includes(model.provider.toLowerCase())) {
-      return false;
-    }
-    if (filter && model.provider !== filter) {
-      return false;
-    }
-    return true;
-  });
-
-  // Group models by provider
-  const groupedModels = filteredModels.reduce((acc, model) => {
-    if (!acc[model.provider]) {
-      acc[model.provider] = [];
-    }
-    acc[model.provider].push(model);
-    return acc;
-  }, {} as Record<string, ModelInfo[]>);
-
-  // Close dropdown when clicking outside
+  // Check which providers have API keys on mount
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    (async () => {
+      try {
+        const keys: Record<string, boolean> = {};
+        for (const p of PROVIDERS) {
+          const k = await (window as any).keyStorage?.get(p.id);
+          keys[p.id] = !!k;
+        }
+        setConfiguredKeys(keys);
+      } catch { /* keyStorage may not exist */ }
+    })();
   }, []);
 
-  const formatContextWindow = (tokens: number): string => {
-    if (tokens >= 1000000) return `${(tokens / 1000000).toFixed(1)}M`;
-    if (tokens >= 1000) return `${(tokens / 1000).toFixed(0)}K`;
-    return tokens.toString();
-  };
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setView('providers');
+        setActiveProvider(null);
+        setError(null);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
-  const formatCost = (cost: number): string => {
-    if (cost < 0.01) return '<$0.01';
-    return `$${cost.toFixed(2)}`;
-  };
+  // Focus key input when entering api-key view
+  useEffect(() => {
+    if (view === 'api-key') keyInputRef.current?.focus();
+  }, [view]);
 
-  if (compact) {
-    return (
-      <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#27272a] rounded-lg text-sm hover:bg-[#3f3f46] transition-colors"
-        >
-          <Brain size={14} className="text-purple-400" />
-          <span className="text-white">{selectedModelInfo?.name || 'Select Model'}</span>
-          <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
+  const displayName = provider?.name || providerId;
 
-        {isOpen && (
-          <div className="absolute top-full mt-1 left-0 w-64 bg-[#18181b] border border-[#27272a] rounded-lg shadow-xl z-50 max-h-80 overflow-auto">
-            {Object.entries(groupedModels).map(([provider, models]) => (
-              <div key={provider}>
-                <div className="px-3 py-1.5 text-xs font-medium text-gray-500 bg-[#0f0f0f]">
-                  {provider}
-                </div>
-                {models.map(model => (
-                  <button
-                    key={model.id}
-                    onClick={() => {
-                      onModelChange(model.id);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full px-3 py-2 text-left hover:bg-[#27272a] flex items-center justify-between ${
-                      model.id === selectedModel ? 'bg-[#27272a]' : ''
-                    }`}
-                  >
-                    <span className="text-sm text-white">{model.name}</span>
-                    {model.id === selectedModel && <Check size={14} className="text-purple-400" />}
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
+  // Fetch models from the provider API
+  const fetchModels = useCallback(async (pid: string, apiKey: string): Promise<{ success: boolean; models: FetchedModel[]; error?: string }> => {
+    try {
+      return await (window as any).ipcRenderer.invoke('provider:fetch-models', pid, apiKey);
+    } catch (err: any) {
+      return { success: false, models: [], error: err.message };
+    }
+  }, []);
+
+  // When clicking a provider
+  const handleProviderClick = useCallback(async (p: Provider) => {
+    if (configuredKeys[p.id]) {
+      // Has key — check cache first
+      if (modelCache[p.id]?.length) {
+        setActiveProvider(p.id);
+        setFetchedModels(modelCache[p.id]);
+        setView('models');
+        return;
+      }
+      // Fetch models using saved key
+      setActiveProvider(p.id);
+      setView('loading');
+      setError(null);
+      const apiKey = await (window as any).keyStorage?.get(p.id);
+      const result = await fetchModels(p.id, apiKey);
+      if (result.success && result.models.length) {
+        setFetchedModels(result.models);
+        setModelCache(prev => ({ ...prev, [p.id]: result.models }));
+        setView('models');
+      } else {
+        // Key might be expired/invalid — ask for new one
+        setError(result.error || 'Could not fetch models. Re-enter your API key.');
+        setKeyInput('');
+        setView('api-key');
+      }
+      return;
+    }
+    // No key — show API key entry
+    setActiveProvider(p.id);
+    setKeyInput('');
+    setError(null);
+    setView('api-key');
+  }, [configuredKeys, modelCache, fetchModels]);
+
+  // Save API key, validate by fetching models
+  const handleConnect = useCallback(async () => {
+    if (!activeProvider || !keyInput.trim()) return;
+    setView('loading');
+    setError(null);
+    try {
+      const result = await fetchModels(activeProvider, keyInput.trim());
+      if (result.success && result.models.length) {
+        // Key works — save it
+        await (window as any).keyStorage?.set(activeProvider, keyInput.trim());
+        setConfiguredKeys(prev => ({ ...prev, [activeProvider]: true }));
+        setFetchedModels(result.models);
+        setModelCache(prev => ({ ...prev, [activeProvider]: result.models }));
+        setView('models');
+      } else {
+        setError(result.error || 'Invalid key or no models found.');
+        setView('api-key');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Connection failed');
+      setView('api-key');
+    }
+  }, [activeProvider, keyInput, fetchModels]);
+
+  // Select a model from the fetched list
+  const handleModelSelect = useCallback((m: FetchedModel) => {
+    if (!activeProvider) return;
+    onModelChange(fmt(activeProvider, m.id));
+    setIsOpen(false);
+    setView('providers');
+    setActiveProvider(null);
+  }, [activeProvider, onModelChange]);
+
+  const handleBack = useCallback(() => {
+    setView('providers');
+    setActiveProvider(null);
+    setError(null);
+  }, []);
+
+  // Edit existing provider key
+  const handleEdit = useCallback(async (pid: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const existing = await (window as any).keyStorage?.get(pid);
+    setActiveProvider(pid);
+    setKeyInput(existing || '');
+    setError(null);
+    setView('api-key');
+  }, []);
+
+  // Save custom endpoint
+  const handleCustomSave = useCallback(async () => {
+    if (!customUrl.trim() || !customModel.trim()) return;
+    try {
+      if (keyInput.trim()) {
+        await (window as any).keyStorage?.set('custom', keyInput.trim());
+      }
+      localStorage.setItem('singularity_custom_url', customUrl.trim());
+      localStorage.setItem('singularity_custom_model', customModel.trim());
+      onModelChange(fmt('custom', customModel.trim()));
+      setIsOpen(false);
+      setView('providers');
+      setActiveProvider(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save');
+    }
+  }, [customUrl, customModel, keyInput, onModelChange]);
+
+  const ap = activeProvider ? getProvider(activeProvider) : null;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-3" ref={dropdownRef}>
-      {/* Selected Model Display */}
+    <div className="relative" ref={dropdownRef}>
+      {/* Trigger */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-4 bg-[#27272a] rounded-xl hover:bg-[#3f3f46] transition-colors text-left"
+        onClick={() => { setIsOpen(!isOpen); setView('providers'); setActiveProvider(null); setError(null); }}
+        className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-tertiary)] rounded-lg text-sm hover:bg-[var(--bg-hover)] transition-colors"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
-              <Brain size={20} className="text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-white font-medium">
-                  {selectedModelInfo?.name || 'Select a Model'}
-                </span>
-                {selectedModelInfo?.recommended && (
-                  <span className="px-1.5 py-0.5 bg-purple-500/20 text-purple-400 text-[10px] rounded">
-                    Recommended
-                  </span>
-                )}
-              </div>
-              <span className="text-sm text-gray-500">
-                {selectedModelInfo?.provider || 'No model selected'}
-              </span>
-            </div>
-          </div>
-          <ChevronDown size={20} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </div>
-
-        {selectedModelInfo && showCapabilities && (
-          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-[#3f3f46]">
-            <div className="flex items-center gap-1 text-xs text-gray-400">
-              <Clock size={12} />
-              <span>{formatContextWindow(selectedModelInfo.contextWindow)} context</span>
-            </div>
-            {showCost && (
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <DollarSign size={12} />
-                <span>{formatCost(selectedModelInfo.inputCostPer1M)}/1M in</span>
-              </div>
-            )}
-            {selectedModelInfo.capabilities.toolCalling && (
-              <div className="flex items-center gap-1 text-xs text-green-400">
-                <Zap size={12} />
-                <span>Tools</span>
-              </div>
-            )}
-          </div>
-        )}
+        <Brain size={14} style={{ color: provider?.color || 'var(--accent-primary)' }} />
+        <span className="text-[var(--text-primary)]">{displayName}</span>
+        <ChevronDown size={14} className={`text-[var(--text-secondary)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
-        <div className="bg-[#18181b] border border-[#27272a] rounded-xl shadow-xl overflow-hidden">
-          {/* Provider Filter */}
-          <div className="flex items-center gap-2 p-3 border-b border-[#27272a] overflow-x-auto">
-            <button
-              onClick={() => setFilter(null)}
-              className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${
-                filter === null ? 'bg-purple-500 text-white' : 'bg-[#27272a] text-gray-400 hover:text-white'
-              }`}
-            >
-              All
-            </button>
-            {Object.keys(groupedModels).map(provider => (
-              <button
-                key={provider}
-                onClick={() => setFilter(provider)}
-                className={`px-3 py-1 rounded-full text-xs whitespace-nowrap ${
-                  filter === provider ? 'bg-purple-500 text-white' : 'bg-[#27272a] text-gray-400 hover:text-white'
-                }`}
-              >
-                {provider}
-              </button>
-            ))}
-          </div>
+        <div className="absolute top-full mt-1 left-0 w-72 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-50 overflow-hidden">
 
-          {/* Model List */}
-          <div className="max-h-80 overflow-auto">
-            {Object.entries(groupedModels).map(([provider, models]) => (
-              <div key={provider}>
-                <div className="px-4 py-2 text-xs font-medium text-gray-500 bg-[#0f0f0f] sticky top-0">
-                  {provider}
+          {/* ── API Key Entry ── */}
+          {view === 'api-key' && ap && (
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <button onClick={handleBack} className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="w-5 h-5 rounded flex items-center justify-center" style={{ backgroundColor: ap.color + '22' }}>
+                  <Brain size={12} style={{ color: ap.color }} />
                 </div>
-                {models.map(model => (
+                <span className="text-sm font-medium text-[var(--text-primary)]">{ap.name}</span>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-1.5 mb-2 px-1 text-xs text-[var(--error)]">
+                  <AlertCircle size={12} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-0.5 block">API Key</label>
+                <input
+                  ref={keyInputRef}
+                  type="password"
+                  value={keyInput}
+                  onChange={e => setKeyInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleConnect(); }}
+                  placeholder="sk-..."
+                  className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded px-2 py-1.5 text-xs border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleConnect}
+                  disabled={!keyInput.trim()}
+                  className="flex-1 px-2 py-1.5 text-xs bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white rounded disabled:opacity-40"
+                >
+                  Connect
+                </button>
+                <button
+                  onClick={handleBack}
+                  className="px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Loading ── */}
+          {view === 'loading' && (
+            <div className="p-6 flex flex-col items-center gap-2">
+              <Loader2 size={20} className="text-[var(--accent-primary)] animate-spin" />
+              <span className="text-xs text-[var(--text-muted)]">Fetching models...</span>
+            </div>
+          )}
+
+          {/* ── Custom Endpoint ── */}
+          {view === 'custom' && (
+            <div className="p-3">
+              <div className="flex items-center gap-2 mb-3">
+                <button onClick={handleBack} className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="w-5 h-5 rounded flex items-center justify-center bg-[var(--info)]/20">
+                  <Server size={12} className="text-[var(--info)]" />
+                </div>
+                <span className="text-sm font-medium text-[var(--text-primary)]">Custom Endpoint</span>
+              </div>
+
+              {error && (
+                <div className="flex items-center gap-1.5 mb-2 px-1 text-xs text-[var(--error)]">
+                  <AlertCircle size={12} className="flex-shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-0.5 block">Base URL</label>
+                  <input
+                    value={customUrl}
+                    onChange={e => setCustomUrl(e.target.value)}
+                    placeholder="http://localhost:11434/v1"
+                    className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded px-2 py-1.5 text-xs border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-0.5 block">API Key <span className="normal-case text-[var(--text-dim)]">(optional)</span></label>
+                  <input
+                    type="password"
+                    value={keyInput}
+                    onChange={e => setKeyInput(e.target.value)}
+                    placeholder="sk-..."
+                    className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded px-2 py-1.5 text-xs border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-0.5 block">Model Name</label>
+                  <input
+                    value={customModel}
+                    onChange={e => setCustomModel(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleCustomSave(); }}
+                    placeholder="llama3, mistral, etc."
+                    className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded px-2 py-1.5 text-xs border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
                   <button
-                    key={model.id}
-                    onClick={() => {
-                      onModelChange(model.id);
-                      setIsOpen(false);
-                    }}
-                    className={`w-full p-4 text-left hover:bg-[#27272a] transition-colors ${
-                      model.id === selectedModel ? 'bg-[#27272a]' : ''
-                    }`}
+                    onClick={handleCustomSave}
+                    disabled={!customUrl.trim() || !customModel.trim()}
+                    className="flex-1 px-2 py-1.5 text-xs bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white rounded disabled:opacity-40"
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-white font-medium">{model.name}</span>
-                        {model.recommended && (
-                          <Sparkles size={12} className="text-yellow-400" />
+                    Save & Use
+                  </button>
+                  <button
+                    onClick={handleBack}
+                    className="px-2 py-1.5 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Model Picker ── */}
+          {view === 'models' && ap && (
+            <div>
+              <div className="px-3 py-2 border-b border-[var(--border-primary)] flex items-center gap-2">
+                <button onClick={handleBack} className="p-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="w-5 h-5 rounded flex items-center justify-center" style={{ backgroundColor: ap.color + '22' }}>
+                  <Brain size={12} style={{ color: ap.color }} />
+                </div>
+                <span className="text-sm font-medium text-[var(--text-primary)]">{ap.name} Models</span>
+                <span className="text-[10px] text-[var(--text-dim)] ml-auto">{fetchedModels.length}</span>
+              </div>
+              <div className="py-1 max-h-64 overflow-y-auto">
+                {fetchedModels.map(m => {
+                  const isActive = activeProvider === providerId && m.id === model;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => handleModelSelect(m)}
+                      className={`w-full px-3 py-2 text-left hover:bg-[var(--bg-tertiary)] flex items-center justify-between text-sm transition-colors ${
+                        isActive ? 'bg-[var(--bg-tertiary)]' : ''
+                      }`}
+                    >
+                      <span className="text-[var(--text-primary)] truncate pr-2">{m.name}</span>
+                      {isActive && <Check size={14} className="text-[var(--accent-primary)] flex-shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Provider List ── */}
+          {view === 'providers' && (
+            <>
+              <div className="py-1 max-h-72 overflow-y-auto">
+                {PROVIDERS.map(p => {
+                  const isActive = p.id === providerId;
+                  const hasKey = configuredKeys[p.id];
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => handleProviderClick(p)}
+                      className={`w-full px-3 py-2.5 text-left hover:bg-[var(--bg-tertiary)] flex items-center justify-between transition-colors ${
+                        isActive ? 'bg-[var(--bg-tertiary)]' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: p.color + '18' }}>
+                          <Brain size={13} style={{ color: p.color }} />
+                        </div>
+                        <span className="text-sm text-[var(--text-primary)]">{p.name}</span>
+                        {hasKey && (
+                          <Key size={10} className="text-[var(--success)] opacity-60" />
+                        )}
+                        {!hasKey && (
+                          <span className="text-[10px] text-[var(--text-dim)]">needs key</span>
                         )}
                       </div>
-                      {model.id === selectedModel && (
-                        <Check size={16} className="text-purple-400" />
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-xs">
-                      <span className="text-gray-500">
-                        {formatContextWindow(model.contextWindow)} context
-                      </span>
-                      {showCost && (
-                        <span className="text-gray-500">
-                          {formatCost(model.inputCostPer1M)}/1M
-                        </span>
-                      )}
-                      <span className={`${
-                        model.speed === 'fast' ? 'text-green-400' :
-                        model.speed === 'medium' ? 'text-yellow-400' : 'text-orange-400'
-                      }`}>
-                        {model.speed}
-                      </span>
-                      {model.capabilities.toolCalling && (
-                        <span className="text-blue-400">Tools</span>
-                      )}
-                      {model.capabilities.vision && (
-                        <span className="text-purple-400">Vision</span>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex items-center gap-1">
+                        {hasKey && (
+                          <button
+                            onClick={(e) => handleEdit(p.id, e)}
+                            className="p-1 text-[var(--text-dim)] hover:text-[var(--text-secondary)] rounded"
+                            title="Edit API key"
+                          >
+                            <Pencil size={11} />
+                          </button>
+                        )}
+                        {isActive && <Check size={14} className="text-[var(--accent-primary)]" />}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
+
+              {/* Custom endpoint */}
+              <div className="border-t border-[var(--border-primary)]">
+                <button
+                  onClick={() => {
+                    setActiveProvider('custom');
+                    setKeyInput('');
+                    setCustomUrl(localStorage.getItem('singularity_custom_url') || '');
+                    setCustomModel(localStorage.getItem('singularity_custom_model') || '');
+                    setError(null);
+                    setView('custom');
+                  }}
+                  className="w-full px-3 py-2.5 text-left hover:bg-[var(--bg-tertiary)] flex items-center gap-2.5 text-sm text-[var(--info)]"
+                >
+                  <div className="w-6 h-6 rounded flex items-center justify-center bg-[var(--info)]/10">
+                    <Server size={13} className="text-[var(--info)]" />
+                  </div>
+                  Custom / Self-hosted...
+                </button>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export { MODELS };
+export { PROVIDERS };

@@ -5,21 +5,20 @@ import '@xterm/xterm/css/xterm.css';
 
 const TerminalPane = React.memo(() => {
     const terminalRef = useRef<HTMLDivElement>(null);
-    // const xtermRef = useRef<Terminal | null>(null); // Removed to fix unused variable lint
 
     useEffect(() => {
         if (!terminalRef.current) return;
 
-        // Initialize Terminal
         const term = new Terminal({
             theme: {
                 background: '#1e1e1e',
                 foreground: '#e0e0e0',
                 cursor: '#ffffff',
             },
-            fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+            fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Menlo', Consolas, 'Liberation Mono', monospace",
             fontSize: 13,
-            rows: 10, // Initial rows
+            rows: 10,
+            convertEol: true,
         });
 
         const fitAddon = new FitAddon();
@@ -28,18 +27,13 @@ const TerminalPane = React.memo(() => {
         term.open(terminalRef.current);
         fitAddon.fit();
 
-        // Welcome message
-        term.writeln('\x1b[1;32mSingularity Terminal\x1b[0m');
-        term.writeln('Powered by xterm.js');
-        term.write('$ ');
-
         // Initialize Backend
-        // We use an async function inside effect
         const initTerminal = async () => {
             try {
-                await window.ipcRenderer.invoke('terminal:create');
-                term.writeln('\x1b[32mTerminal Backend Connected.\x1b[0m');
-                term.write('$ ');
+                const result = await window.ipcRenderer.invoke('terminal:create');
+                if (!result) {
+                    term.writeln('\x1b[31mFailed to start shell.\x1b[0m');
+                }
             } catch (err) {
                 term.writeln('\x1b[31mFailed to connect to backend shell.\x1b[0m');
                 console.error(err);
@@ -64,10 +58,8 @@ const TerminalPane = React.memo(() => {
 
         // IPC Listener for Menu Actions
         const handleNewTerminal = async () => {
-            await window.ipcRenderer.invoke('terminal:create');
             term.reset();
-            term.writeln('\x1b[32mStarting new session...\x1b[0m');
-            term.write('$ ');
+            await window.ipcRenderer.invoke('terminal:create');
             term.focus();
         };
         window.ipcRenderer.on('menu:new-terminal', handleNewTerminal);
@@ -81,7 +73,7 @@ const TerminalPane = React.memo(() => {
     }, []);
 
     return (
-        <div className="h-48 bg-[#1e1e1e] border-t border-[#27272a] p-2">
+        <div className="h-full bg-[var(--bg-primary)] border-t border-[var(--border-primary)] p-2">
             <div ref={terminalRef} className="h-full w-full" />
         </div>
     );

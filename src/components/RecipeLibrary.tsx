@@ -115,20 +115,20 @@ export default function RecipeLibrary({
   }, [filteredRecipes]);
 
   return (
-    <div className="flex flex-col h-full bg-[#18181b] rounded-lg border border-[#27272a]">
+    <div className="flex flex-col h-full bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-primary)]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-[#27272a]">
+      <div className="flex items-center justify-between p-4 border-b border-[var(--border-primary)]">
         <div className="flex items-center gap-2">
-          <Book size={20} className="text-purple-400" />
-          <h2 className="text-white font-semibold">Recipe Library</h2>
-          <span className="text-xs text-gray-500 bg-[#27272a] px-2 py-0.5 rounded-full">
+          <Book size={20} className="text-[var(--accent-primary)]" />
+          <h2 className="text-[var(--text-primary)] font-semibold">Recipe Library</h2>
+          <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full">
             {filteredRecipes.length} recipes
           </span>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white p-1"
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1"
           >
             &times;
           </button>
@@ -136,16 +136,16 @@ export default function RecipeLibrary({
       </div>
 
       {/* Search and Filters */}
-      <div className="p-4 border-b border-[#27272a] space-y-3">
+      <div className="p-4 border-b border-[var(--border-primary)] space-y-3">
         {/* Search */}
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search recipes..."
-            className="w-full bg-[#27272a] text-white rounded-lg pl-10 pr-4 py-2 text-sm border border-transparent focus:border-purple-500 focus:outline-none placeholder-gray-600"
+            className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded-lg pl-10 pr-4 py-2 text-sm border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-dim)]"
           />
         </div>
 
@@ -155,8 +155,8 @@ export default function RecipeLibrary({
             onClick={() => setSelectedCategory(null)}
             className={`px-3 py-1 text-xs rounded-full transition-colors ${
               selectedCategory === null
-                ? 'bg-purple-500 text-white'
-                : 'bg-[#27272a] text-gray-400 hover:text-white'
+                ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]'
+                : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
           >
             All
@@ -167,8 +167,8 @@ export default function RecipeLibrary({
               onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
               className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full transition-colors ${
                 selectedCategory === cat
-                  ? 'bg-purple-500 text-white'
-                  : 'bg-[#27272a] text-gray-400 hover:text-white'
+                  ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]'
+                  : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
             >
               {CATEGORY_ICONS[cat]}
@@ -179,12 +179,12 @@ export default function RecipeLibrary({
 
         {/* Compatible Only Toggle */}
         {currentStackId && (
-          <label className="flex items-center gap-2 text-sm text-gray-400 cursor-pointer">
+          <label className="flex items-center gap-2 text-sm text-[var(--text-muted)] cursor-pointer">
             <input
               type="checkbox"
               checked={showCompatibleOnly}
               onChange={(e) => setShowCompatibleOnly(e.target.checked)}
-              className="rounded border-gray-600 bg-[#27272a] text-purple-500 focus:ring-purple-500"
+              className="rounded border-[var(--text-dim)] bg-[var(--bg-tertiary)] text-[var(--accent-primary)] focus:ring-[var(--accent-primary)]"
             />
             <Filter size={14} />
             Show compatible only
@@ -196,10 +196,10 @@ export default function RecipeLibrary({
       <div className="flex-1 overflow-auto p-4 space-y-6">
         {Object.entries(groupedRecipes).map(([category, categoryRecipes]) => (
           <div key={category}>
-            <h3 className="flex items-center gap-2 text-sm font-medium text-gray-400 mb-3">
+            <h3 className="flex items-center gap-2 text-sm font-medium text-[var(--text-muted)] mb-3">
               {CATEGORY_ICONS[category]}
               {CATEGORY_LABELS[category] || category}
-              <span className="text-xs text-gray-600">({categoryRecipes.length})</span>
+              <span className="text-xs text-[var(--text-dim)]">({categoryRecipes.length})</span>
             </h3>
             <div className="space-y-2">
               {categoryRecipes.map(recipe => (
@@ -218,7 +218,7 @@ export default function RecipeLibrary({
         ))}
 
         {filteredRecipes.length === 0 && (
-          <div className="text-center py-12 text-gray-500">
+          <div className="text-center py-12 text-[var(--text-muted)]">
             <Book size={48} className="mx-auto mb-3 opacity-30" />
             <p className="text-sm">No recipes found</p>
             {searchQuery && (
@@ -244,41 +244,41 @@ function RecipeCard({ recipe, isCompatible, onClick }: RecipeCardProps) {
       disabled={!isCompatible}
       className={`w-full text-left p-4 rounded-lg border transition-all ${
         isCompatible
-          ? 'border-[#27272a] hover:border-purple-500/50 bg-[#1f1f23] hover:bg-[#27272a]'
-          : 'border-[#27272a] bg-[#1f1f23] opacity-50 cursor-not-allowed'
+          ? 'border-[var(--border-primary)] hover:border-[var(--accent-primary)]/50 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)]'
+          : 'border-[var(--border-primary)] bg-[var(--bg-secondary)] opacity-50 cursor-not-allowed'
       }`}
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-white font-medium">{recipe.name}</span>
+            <span className="text-[var(--text-primary)] font-medium">{recipe.name}</span>
             {recipe.author === 'Singularity' && (
-              <Star size={12} className="text-yellow-500" />
+              <Star size={12} className="text-[var(--warning)]" />
             )}
           </div>
-          <p className="text-sm text-gray-500 mb-2">{recipe.description}</p>
+          <p className="text-sm text-[var(--text-muted)] mb-2">{recipe.description}</p>
           <div className="flex flex-wrap gap-1">
             {recipe.tags.slice(0, 4).map(tag => (
               <span
                 key={tag}
-                className="text-[10px] px-1.5 py-0.5 bg-[#27272a] text-gray-500 rounded"
+                className="text-[10px] px-1.5 py-0.5 bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded"
               >
                 {tag}
               </span>
             ))}
             {recipe.tags.length > 4 && (
-              <span className="text-[10px] text-gray-600">
+              <span className="text-[10px] text-[var(--text-dim)]">
                 +{recipe.tags.length - 4} more
               </span>
             )}
           </div>
         </div>
         {isCompatible && (
-          <ChevronRight size={20} className="text-gray-600 flex-shrink-0 ml-2" />
+          <ChevronRight size={20} className="text-[var(--text-dim)] flex-shrink-0 ml-2" />
         )}
       </div>
       {!isCompatible && (
-        <p className="text-xs text-orange-400 mt-2">
+        <p className="text-xs text-[var(--warning)] mt-2">
           Not compatible with current stack
         </p>
       )}

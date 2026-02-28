@@ -24,6 +24,12 @@ import { getModelService } from '../models/unified';
 import { ModelId, Message } from '../models/types';
 import { ToolRegistry, globalToolRegistry, ToolContext } from '../tools/registry';
 import { registerCoreTools } from '../tools/core-tools';
+import { registerGitTools } from '../tools/git-tools';
+import { registerNpmTools } from '../tools/npm-tools';
+import { registerTestTools } from '../tools/test-tools';
+import { registerLintTools } from '../tools/lint-tools';
+import { registerBrowserTools } from '../tools/browser-tools';
+import { registerWebSearchTools } from '../tools/web-search-tool';
 import { getSecurityConfig } from '../tools/security';
 import {
   executeToolCalls,
@@ -63,9 +69,15 @@ export class ExecutorAgentImpl implements ExecutorAgent {
     this.model = model;
     this.toolRegistry = toolRegistry || globalToolRegistry;
 
-    // Register core tools if not already registered
+    // Register all tools if not already registered
     if (this.toolRegistry.size === 0) {
       registerCoreTools(this.toolRegistry);
+      registerGitTools(this.toolRegistry);
+      registerNpmTools(this.toolRegistry);
+      registerTestTools(this.toolRegistry);
+      registerLintTools(this.toolRegistry);
+      registerBrowserTools(this.toolRegistry);
+      registerWebSearchTools(this.toolRegistry);
     }
   }
 

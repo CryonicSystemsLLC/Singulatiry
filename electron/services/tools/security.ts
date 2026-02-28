@@ -3,22 +3,46 @@
  */
 
 import path from 'node:path';
+import fs from 'node:fs';
 import { SecurityConfig, ToolResult, Tool, ToolContext } from './registry';
 
 // Re-export SecurityConfig for convenience
 export type { SecurityConfig } from './registry';
 
+// Build platform-aware blocked paths
+function getProBlockedPaths(): string[] {
+  const paths = ['.env.local', '.env.production'];
+  if (process.platform === 'win32') {
+    paths.push(
+      (process.env.SYSTEMROOT || 'C:\\Windows') + '\\System32\\config',
+    );
+  } else {
+    paths.push('/etc/passwd', '/etc/shadow');
+  }
+  return paths;
+}
+
+function getKidBlockedPathsSecurity(): string[] {
+  const paths = ['../', 'node_modules', '.git', '.env'];
+  if (process.platform === 'win32') {
+    paths.push('..\\');
+    paths.push(process.env.SYSTEMROOT || 'C:\\Windows');
+    paths.push(process.env.PROGRAMFILES || 'C:\\Program Files');
+    paths.push((process.env.APPDATA || '') + '\\*');
+  } else {
+    paths.push('/etc', '/usr', '/var');
+    if (process.platform === 'darwin') {
+      paths.push('/System', '/Library');
+    }
+  }
+  return paths.filter(Boolean);
+}
+
 // Default security configurations for different modes
 export const DEFAULT_SECURITY_CONFIGS: Record<string, SecurityConfig> = {
   pro: {
     allowedCommands: '*',
-    blockedPaths: [
-      '/etc/passwd',
-      '/etc/shadow',
-      'C:\\Windows\\System32\\config',
-      '.env.local',
-      '.env.production'
-    ],
+    blockedPaths: getProBlockedPaths(),
     maxFileSize: 50 * 1024 * 1024, // 50MB
     maxExecutionTime: 300000, // 5 minutes
     networkAccess: 'full'
@@ -33,19 +57,7 @@ export const DEFAULT_SECURITY_CONFIGS: Record<string, SecurityConfig> = {
       'npx prisma migrate dev',
       'npx prisma db push'
     ],
-    blockedPaths: [
-      '../',
-      '..\\',
-      '/etc',
-      '/usr',
-      '/var',
-      'C:\\Windows',
-      'C:\\Program Files',
-      'C:\\Users\\*\\AppData',
-      'node_modules',
-      '.git',
-      '.env'
-    ],
+    blockedPaths: getKidBlockedPathsSecurity(),
     maxFileSize: 1 * 1024 * 1024, // 1MB
     maxExecutionTime: 30000, // 30 seconds
     networkAccess: 'localhost-only'
@@ -129,6 +141,33 @@ export function validatePath(
       valid: false,
       error: `Path '${filePath}' resolves outside project directory`
     };
+  }
+
+  // Resolve symlinks to detect symlink-based traversal attacks
+  try {
+    const realPath = normalizePath(fs.realpathSync(resolved));
+    const realRoot = normalizePath(fs.realpathSync(projectRoot));
+    if (!realPath.startsWith(realRoot)) {
+      return {
+        valid: false,
+        error: `Path '${filePath}' resolves to '${realPath}' outside project directory via symlink`
+      };
+    }
+  } catch {
+    // File doesn't exist yet (e.g. creating a new file) — check parent dir instead
+    const parentDir = path.dirname(resolved);
+    try {
+      const realParent = normalizePath(fs.realpathSync(parentDir));
+      const realRoot = normalizePath(fs.realpathSync(projectRoot));
+      if (!realParent.startsWith(realRoot)) {
+        return {
+          valid: false,
+          error: `Parent directory of '${filePath}' resolves outside project directory via symlink`
+        };
+      }
+    } catch {
+      // Parent doesn't exist either — will fail on actual file operation
+    }
   }
 
   // Check blocked paths

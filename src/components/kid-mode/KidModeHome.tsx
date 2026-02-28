@@ -82,12 +82,12 @@ export default function KidModeHome({
       {/* Header */}
       <div className="text-center mb-8">
         <div className="inline-flex items-center gap-3 mb-4">
-          <Rocket className="w-10 h-10 text-purple-400" />
+          <Rocket className="w-10 h-10 text-[var(--accent-primary)]" />
           <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 text-transparent bg-clip-text">
             What do you want to create?
           </h1>
         </div>
-        <p className="text-gray-400 text-lg">
+        <p className="text-[var(--text-muted)] text-lg">
           Pick a project type or tell me your idea!
         </p>
       </div>
@@ -109,14 +109,14 @@ export default function KidModeHome({
               Describe your idea and I'll help you create it
             </p>
           </div>
-          <Sparkles className="w-8 h-8 text-yellow-300 group-hover:animate-pulse" />
+          <Sparkles className="w-8 h-8 text-[var(--warning)] group-hover:animate-pulse" />
         </div>
       </button>
 
       {/* Preset Grid */}
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-lg font-medium text-gray-400 mb-4 flex items-center gap-2">
-          <Sparkles size={18} className="text-yellow-400" />
+        <h2 className="text-lg font-medium text-[var(--text-muted)] mb-4 flex items-center gap-2">
+          <Sparkles size={18} className="text-[var(--warning)]" />
           Or pick a project type
         </h2>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -133,21 +133,21 @@ export default function KidModeHome({
       {/* Recent Projects */}
       {recentProjects.length > 0 && (
         <div className="max-w-4xl mx-auto mt-12">
-          <h2 className="text-lg font-medium text-gray-400 mb-4">
+          <h2 className="text-lg font-medium text-[var(--text-muted)] mb-4">
             Continue working on...
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {recentProjects.slice(0, 4).map((project) => (
               <button
                 key={project.id}
-                className="flex items-center gap-4 p-4 bg-[#27272a] rounded-xl hover:bg-[#3f3f46] transition-colors text-left"
+                className="flex items-center gap-4 p-4 bg-[var(--bg-tertiary)] rounded-xl hover:bg-[var(--bg-hover)] transition-colors text-left"
               >
                 <div className="w-12 h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-lg flex items-center justify-center">
-                  <Gamepad2 size={24} className="text-purple-400" />
+                  <Gamepad2 size={24} className="text-[var(--accent-primary)]" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-white font-medium truncate">{project.name}</h3>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-[var(--text-muted)]">
                     Last opened {formatTimeAgo(project.lastOpened)}
                   </p>
                 </div>
@@ -158,9 +158,9 @@ export default function KidModeHome({
       )}
 
       {/* Fun footer */}
-      <div className="text-center mt-12 text-gray-600">
+      <div className="text-center mt-12 text-[var(--text-muted)]">
         <p className="text-sm">
-          Made with <span className="text-red-400">❤</span> by Singularity
+          Made with <span className="text-[var(--error)]">❤</span> by Singularity
         </p>
       </div>
     </div>
@@ -178,7 +178,7 @@ function PresetCard({ preset, onClick }: PresetCardProps) {
   return (
     <button
       onClick={onClick}
-      className="group relative overflow-hidden rounded-2xl bg-[#27272a] p-5 text-left transition-all hover:scale-[1.03] hover:shadow-xl"
+      className="group relative overflow-hidden rounded-2xl bg-[var(--bg-tertiary)] p-5 text-left transition-all hover:scale-[1.03] hover:shadow-xl"
     >
       {/* Gradient background on hover */}
       <div className={`absolute inset-0 bg-gradient-to-br ${preset.color} opacity-0 group-hover:opacity-10 transition-opacity`} />
@@ -190,7 +190,7 @@ function PresetCard({ preset, onClick }: PresetCardProps) {
       <h3 className="text-lg font-bold text-white mb-1">
         {preset.name}
       </h3>
-      <p className="text-sm text-gray-400 mb-3">
+      <p className="text-sm text-[var(--text-muted)] mb-3">
         {preset.description}
       </p>
 
@@ -198,7 +198,7 @@ function PresetCard({ preset, onClick }: PresetCardProps) {
         {preset.examples.slice(0, 2).map((example, i) => (
           <span
             key={i}
-            className="text-[10px] px-2 py-1 bg-[#18181b] text-gray-500 rounded-full"
+            className="text-[10px] px-2 py-1 bg-[var(--bg-secondary)] text-[var(--text-muted)] rounded-full"
           >
             {example}
           </span>

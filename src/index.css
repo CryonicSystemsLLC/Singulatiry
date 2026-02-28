@@ -1,3 +1,5 @@
+@import './themes/variables.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,9 +10,8 @@ body,
   height: 100%;
   margin: 0;
   overflow: hidden;
-  background-color: #0d0d12;
-  /* Deep cosmic dark */
-  color: #e0e0e0;
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
 }
 
 /* Custom Scrollbar */
@@ -24,23 +25,21 @@ body,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: var(--border-primary);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: var(--bg-hover);
 }
 
 /* Glassmorphism Utilities - REPLACED WITH SOLID COLORS FOR PERFORMANCE */
 .glass {
-  background: #18181b;
-  /* zinc-900 */
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-secondary);
 }
 
 .glass-panel {
-  background: #1e1e1e;
-  /* zinc-800/darker */
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-secondary);
 }

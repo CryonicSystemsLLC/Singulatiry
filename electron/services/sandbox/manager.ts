@@ -45,6 +45,32 @@ export interface ExecutionResult {
   error?: string;
 }
 
+function getKidBlockedPaths(): string[] {
+  if (process.platform === 'win32') {
+    return [
+      'C:\\',
+      process.env.SYSTEMROOT || 'C:\\Windows',
+      process.env.PROGRAMFILES || 'C:\\Program Files',
+      process.env.APPDATA || '',
+    ].filter(Boolean);
+  }
+  const paths = ['/', '/etc', '/usr', '/var', '/bin', '/sbin'];
+  if (process.platform === 'darwin') {
+    paths.push('/System', '/Library', '/Applications');
+  }
+  return paths;
+}
+
+function getProBlockedCommands(): string[] {
+  const cmds = ['format', 'shutdown -h now', 'reboot'];
+  if (process.platform === 'win32') {
+    cmds.push('del /s /q C:\\');
+  } else {
+    cmds.push('rm -rf /');
+  }
+  return cmds;
+}
+
 const DEFAULT_KID_MODE_RESTRICTIONS: SandboxRestrictions = {
   allowedCommands: [
     'npm',
@@ -83,18 +109,7 @@ const DEFAULT_KID_MODE_RESTRICTIONS: SandboxRestrictions = {
     'exec'
   ],
   allowedPaths: [], // Will be set to project root
-  blockedPaths: [
-    '/',
-    'C:\\',
-    '/etc',
-    '/usr',
-    '/var',
-    '/bin',
-    '/sbin',
-    '%SYSTEMROOT%',
-    '%PROGRAMFILES%',
-    '%APPDATA%'
-  ],
+  blockedPaths: getKidBlockedPaths(),
   maxExecutionTime: 30000, // 30 seconds
   maxMemory: 536870912, // 512MB
   maxCpuPercent: 50,
@@ -104,13 +119,7 @@ const DEFAULT_KID_MODE_RESTRICTIONS: SandboxRestrictions = {
 
 const DEFAULT_PRO_MODE_RESTRICTIONS: SandboxRestrictions = {
   allowedCommands: '*',
-  blockedCommands: [
-    'rm -rf /',
-    'del /s /q C:\\',
-    'format',
-    'shutdown -h now',
-    'reboot'
-  ],
+  blockedCommands: getProBlockedCommands(),
   allowedPaths: [], // No restrictions
   blockedPaths: [],
   maxExecutionTime: 300000, // 5 minutes
@@ -282,7 +291,7 @@ export class SandboxManager {
       const child = spawn(parts[0], parts.slice(1), {
         cwd,
         env,
-        shell: true,
+        shell: false,
         stdio: ['pipe', 'pipe', 'pipe']
       });
 

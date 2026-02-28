@@ -1,311 +1,229 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { X, Key, Check, AlertCircle, Loader2, Shield, Trash2 } from 'lucide-react';
-import { AIProvider } from '../services/ai';
+import React, { useEffect, useState } from 'react';
+import { X, Check, Settings, Palette, Code2, Server } from 'lucide-react';
+import { useSettingsStore, Theme } from '../stores/settingsStore';
+import McpSettingsPane from './McpSettingsPane';
 
 interface SettingsModalProps {
     isOpen: boolean;
     onClose: () => void;
 }
 
-interface ProviderKeyState {
-    hasKey: boolean;
-    isValidating: boolean;
-    isValid?: boolean;
-    lastUpdated?: string;
-}
+type SettingsTab = 'appearance' | 'editor' | 'mcp';
 
-const PROVIDER_OPTIONS: { value: AIProvider; label: string; description: string }[] = [
-    { value: 'openai', label: 'OpenAI', description: 'GPT-4o, GPT-4o-mini' },
-    { value: 'anthropic', label: 'Anthropic', description: 'Claude 3.5 Sonnet, Claude 3 Opus' },
-    { value: 'gemini', label: 'Google Gemini', description: 'Gemini 1.5 Pro, Gemini 1.5 Flash' },
-    { value: 'xai', label: 'xAI', description: 'Grok Beta' },
-    { value: 'deepseek', label: 'DeepSeek', description: 'DeepSeek Chat, DeepSeek Coder' },
-    { value: 'kimi', label: 'Moonshot Kimi', description: 'Moonshot v1' },
-    { value: 'qwen', label: 'Alibaba Qwen', description: 'Qwen Plus, Qwen Turbo' },
+const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'appearance', label: 'Appearance', icon: <Palette size={14} /> },
+    { id: 'editor', label: 'Editor', icon: <Code2 size={14} /> },
+    { id: 'mcp', label: 'MCP Servers', icon: <Server size={14} /> },
 ];
 
+const THEME_OPTIONS: { id: Theme; label: string; colors: [string, string, string, string] }[] = [
+    { id: 'dark',            label: 'Dark',            colors: ['#0d0d12', '#a855f7', '#ffffff', '#27272a'] },
+    { id: 'light',           label: 'Light',           colors: ['#ffffff', '#7c3aed', '#18181b', '#e4e4e7'] },
+    { id: 'midnight',        label: 'Midnight',        colors: ['#0b1426', '#60a5fa', '#e2e8f0', '#1a2944'] },
+    { id: 'nord',            label: 'Nord',            colors: ['#2e3440', '#88c0d0', '#eceff4', '#434c5e'] },
+    { id: 'solarized-dark',  label: 'Solarized Dark',  colors: ['#002b36', '#b58900', '#fdf6e3', '#0a4050'] },
+    { id: 'solarized-light', label: 'Solarized Light', colors: ['#fdf6e3', '#b58900', '#073642', '#ddd6c1'] },
+    { id: 'monokai',         label: 'Monokai',         colors: ['#272822', '#f92672', '#f8f8f2', '#3e3d32'] },
+    { id: 'dracula',         label: 'Dracula',         colors: ['#282a36', '#bd93f9', '#f8f8f2', '#343746'] },
+    { id: 'catppuccin',      label: 'Catppuccin',      colors: ['#1e1e2e', '#cba6f7', '#cdd6f4', '#313244'] },
+    { id: 'high-contrast',   label: 'High Contrast',   colors: ['#000000', '#00ffff', '#ffffff', '#1a1a1a'] },
+];
+
+const FONT_OPTIONS = [
+    "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+    "'Fira Code', Consolas, monospace",
+    "Consolas, 'Courier New', monospace",
+    "'Source Code Pro', Consolas, monospace",
+    "'Cascadia Code', Consolas, monospace",
+    "'IBM Plex Mono', Consolas, monospace",
+];
+
+const FONT_LABELS: Record<string, string> = {
+    "'JetBrains Mono', 'Fira Code', Consolas, monospace": 'JetBrains Mono',
+    "'Fira Code', Consolas, monospace": 'Fira Code',
+    "Consolas, 'Courier New', monospace": 'Consolas',
+    "'Source Code Pro', Consolas, monospace": 'Source Code Pro',
+    "'Cascadia Code', Consolas, monospace": 'Cascadia Code',
+    "'IBM Plex Mono', Consolas, monospace": 'IBM Plex Mono',
+};
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-    const [selectedProvider, setSelectedProvider] = useState<AIProvider>('openai');
-    const [activeProvider, setActiveProvider] = useState<AIProvider>('openai');
-    const [apiKey, setApiKey] = useState('');
-    const [providerStates, setProviderStates] = useState<Record<string, ProviderKeyState>>({});
-    const [isSaving, setIsSaving] = useState(false);
-    const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
-    // Load provider key states
-    const loadProviderStates = useCallback(async () => {
-        if (!window.keyStorage) return;
+    const {
+        theme, setTheme,
+        fontSize, setFontSize,
+        fontFamily, setFontFamily,
+        tabSize, setTabSize,
+        wordWrap, setWordWrap,
+        minimap, setMinimap,
+        lineNumbers, setLineNumbers,
+    } = useSettingsStore();
 
-        const states: Record<string, ProviderKeyState> = {};
-        const providers = await window.keyStorage.list();
-
-        for (const provider of PROVIDER_OPTIONS) {
-            const hasKey = providers.includes(provider.value);
-            let metadata = null;
-            if (hasKey) {
-                metadata = await window.keyStorage.getMetadata(provider.value);
-            }
-            states[provider.value] = {
-                hasKey,
-                isValidating: false,
-                lastUpdated: metadata?.lastUpdated,
-            };
-        }
-
-        setProviderStates(states);
-    }, []);
-
-    // Load active provider from localStorage
+    // Close on Escape key
     useEffect(() => {
-        if (isOpen) {
-            loadProviderStates();
-            const storedProvider = localStorage.getItem('singularity_provider');
-            if (storedProvider) {
-                setActiveProvider(storedProvider as AIProvider);
-                setSelectedProvider(storedProvider as AIProvider);
-            }
-        }
-    }, [isOpen, loadProviderStates]);
-
-    // Clear key input when switching providers
-    useEffect(() => {
-        setApiKey('');
-        setSaveMessage(null);
-    }, [selectedProvider]);
-
-    const handleSaveKey = async () => {
-        if (!apiKey.trim() || !window.keyStorage) return;
-
-        setIsSaving(true);
-        setSaveMessage(null);
-
-        try {
-            // Validate key before saving
-            setProviderStates(prev => ({
-                ...prev,
-                [selectedProvider]: { ...prev[selectedProvider], isValidating: true }
-            }));
-
-            let isValid = true;
-            if (window.modelService) {
-                isValid = await window.modelService.validateKey(selectedProvider, apiKey);
-            }
-
-            if (!isValid) {
-                setSaveMessage({ type: 'error', text: 'Invalid API key. Please check and try again.' });
-                setProviderStates(prev => ({
-                    ...prev,
-                    [selectedProvider]: { ...prev[selectedProvider], isValidating: false, isValid: false }
-                }));
-                setIsSaving(false);
-                return;
-            }
-
-            // Save the key securely
-            const success = await window.keyStorage.set(selectedProvider, apiKey);
-
-            if (success) {
-                setSaveMessage({ type: 'success', text: 'API key saved securely.' });
-                setProviderStates(prev => ({
-                    ...prev,
-                    [selectedProvider]: {
-                        hasKey: true,
-                        isValidating: false,
-                        isValid: true,
-                        lastUpdated: new Date().toISOString()
-                    }
-                }));
-                setApiKey('');
-            } else {
-                setSaveMessage({ type: 'error', text: 'Failed to save API key.' });
-            }
-        } catch (error) {
-            setSaveMessage({ type: 'error', text: 'Error saving API key.' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleDeleteKey = async (provider: AIProvider) => {
-        if (!window.keyStorage) return;
-
-        const confirmed = confirm(`Delete API key for ${PROVIDER_OPTIONS.find(p => p.value === provider)?.label}?`);
-        if (!confirmed) return;
-
-        const success = await window.keyStorage.delete(provider);
-        if (success) {
-            setProviderStates(prev => ({
-                ...prev,
-                [provider]: { hasKey: false, isValidating: false }
-            }));
-            if (provider === activeProvider) {
-                // Find another provider with a key
-                const nextProvider = PROVIDER_OPTIONS.find(p =>
-                    p.value !== provider && providerStates[p.value]?.hasKey
-                );
-                if (nextProvider) {
-                    handleSetActive(nextProvider.value);
-                }
-            }
-        }
-    };
-
-    const handleSetActive = (provider: AIProvider) => {
-        if (!providerStates[provider]?.hasKey) return;
-        setActiveProvider(provider);
-        localStorage.setItem('singularity_provider', provider);
-    };
+        if (!isOpen) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') onClose();
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
 
     if (!isOpen) return null;
 
-    const selectedProviderInfo = PROVIDER_OPTIONS.find(p => p.value === selectedProvider);
-    const selectedState = providerStates[selectedProvider] || { hasKey: false, isValidating: false };
-
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
-            <div className="bg-[#18181b] w-[520px] rounded-lg border border-[#27272a] shadow-xl">
-                <div className="flex justify-between items-center p-4 border-b border-[#27272a]">
-                    <h2 className="text-white font-semibold flex items-center gap-2">
-                        <Shield size={18} className="text-purple-400" />
-                        API Key Management
+        <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="bg-[var(--bg-secondary)] w-[560px] max-h-[85vh] flex flex-col rounded-lg border border-[var(--border-primary)] shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex justify-between items-center p-4 border-b border-[var(--border-primary)] shrink-0">
+                    <h2 className="text-[var(--text-primary)] font-semibold flex items-center gap-2">
+                        <Settings size={18} className="text-[var(--accent-primary)]" />
+                        Settings
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white">
+                    <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                         <X size={18} />
                     </button>
                 </div>
 
-                <div className="p-4">
-                    <p className="text-xs text-gray-500 mb-4">
-                        API keys are encrypted and stored securely on your device.
-                    </p>
-
-                    {/* Provider List */}
-                    <div className="space-y-2 mb-6">
-                        {PROVIDER_OPTIONS.map(provider => {
-                            const state = providerStates[provider.value] || { hasKey: false };
-                            const isActive = activeProvider === provider.value;
-                            const isSelected = selectedProvider === provider.value;
-
-                            return (
-                                <div
-                                    key={provider.value}
-                                    className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
-                                        isSelected
-                                            ? 'border-purple-500 bg-purple-500/10'
-                                            : 'border-[#27272a] hover:border-[#3f3f46]'
-                                    }`}
-                                    onClick={() => setSelectedProvider(provider.value)}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${
-                                            state.hasKey ? 'bg-green-500' : 'bg-gray-600'
-                                        }`} />
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-white text-sm font-medium">{provider.label}</span>
-                                                {isActive && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-purple-500/20 text-purple-400 rounded uppercase font-bold">
-                                                        Active
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-gray-500">{provider.description}</span>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {state.hasKey && (
-                                            <>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleSetActive(provider.value);
-                                                    }}
-                                                    className={`text-xs px-2 py-1 rounded ${
-                                                        isActive
-                                                            ? 'text-gray-500 cursor-default'
-                                                            : 'text-purple-400 hover:bg-purple-500/20'
-                                                    }`}
-                                                    disabled={isActive}
-                                                >
-                                                    {isActive ? 'In Use' : 'Use'}
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteKey(provider.value);
-                                                    }}
-                                                    className="text-gray-500 hover:text-red-400 p-1"
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Key Input Section */}
-                    <div className="border-t border-[#27272a] pt-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Key size={14} className="text-gray-400" />
-                            <span className="text-sm text-gray-300">
-                                {selectedState.hasKey ? 'Update' : 'Add'} {selectedProviderInfo?.label} Key
-                            </span>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <input
-                                type="password"
-                                value={apiKey}
-                                onChange={(e) => setApiKey(e.target.value)}
-                                placeholder={`Enter your ${selectedProviderInfo?.label.split(' ')[0]} API Key`}
-                                className="flex-1 bg-[#27272a] text-white rounded px-3 py-2 text-sm border border-transparent focus:border-purple-500 focus:outline-none placeholder-gray-600"
-                                onKeyDown={(e) => e.key === 'Enter' && handleSaveKey()}
-                            />
-                            <button
-                                onClick={handleSaveKey}
-                                disabled={!apiKey.trim() || isSaving}
-                                className="px-4 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 size={14} className="animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    'Save Key'
-                                )}
-                            </button>
-                        </div>
-
-                        {/* Status Message */}
-                        {saveMessage && (
-                            <div className={`mt-3 flex items-center gap-2 text-sm ${
-                                saveMessage.type === 'success' ? 'text-green-400' : 'text-red-400'
-                            }`}>
-                                {saveMessage.type === 'success' ? (
-                                    <Check size={14} />
-                                ) : (
-                                    <AlertCircle size={14} />
-                                )}
-                                {saveMessage.text}
-                            </div>
-                        )}
-
-                        {selectedState.lastUpdated && (
-                            <p className="mt-2 text-xs text-gray-600">
-                                Last updated: {new Date(selectedState.lastUpdated).toLocaleDateString()}
-                            </p>
-                        )}
-                    </div>
+                {/* Tab Bar */}
+                <div className="flex border-b border-[var(--border-primary)] shrink-0">
+                    {TABS.map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            className={`flex items-center gap-1.5 px-4 py-2.5 text-xs font-medium transition-colors relative ${
+                                activeTab === tab.id
+                                    ? 'text-[var(--accent-primary)]'
+                                    : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                            }`}
+                        >
+                            {tab.icon}
+                            {tab.label}
+                            {activeTab === tab.id && (
+                                <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-[var(--accent-primary)] rounded-t" />
+                            )}
+                        </button>
+                    ))}
                 </div>
 
-                <div className="flex justify-end p-4 border-t border-[#27272a]">
+                {/* Scrollable Content */}
+                <div className="overflow-y-auto flex-1">
+                    {/* Appearance Tab */}
+                    {activeTab === 'appearance' && (
+                        <div className="p-4">
+                            <span className="text-sm font-medium text-[var(--text-primary)] mb-3 block">Theme</span>
+                            <div className="grid grid-cols-2 gap-2">
+                                {THEME_OPTIONS.map((t) => {
+                                    const isSelected = theme === t.id;
+                                    return (
+                                        <button
+                                            key={t.id}
+                                            onClick={() => setTheme(t.id)}
+                                            className={`flex items-center gap-2.5 p-2 rounded-lg border transition-all text-left ${
+                                                isSelected
+                                                    ? 'border-[var(--accent-primary)] bg-[var(--accent-bg)]'
+                                                    : 'border-[var(--border-primary)] hover:border-[var(--bg-hover)]'
+                                            }`}
+                                        >
+                                            <div className="flex rounded overflow-hidden shrink-0">
+                                                {t.colors.map((color, i) => (
+                                                    <div key={i} className="w-3 h-6" style={{ backgroundColor: color }} />
+                                                ))}
+                                            </div>
+                                            <span className="text-xs text-[var(--text-primary)] truncate">{t.label}</span>
+                                            {isSelected && (
+                                                <Check size={12} className="text-[var(--accent-primary)] ml-auto shrink-0" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Editor Tab */}
+                    {activeTab === 'editor' && (
+                        <div className="p-4">
+                            <span className="text-sm font-medium text-[var(--text-primary)] mb-3 block">Editor</span>
+                            <div className="space-y-3">
+                                {/* Font Family */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-[var(--text-secondary)]">Font Family</span>
+                                    <select
+                                        value={fontFamily}
+                                        onChange={(e) => setFontFamily(e.target.value)}
+                                        className="bg-[var(--bg-tertiary)] text-[var(--text-primary)] text-xs rounded px-2 py-1.5 border border-[var(--border-primary)] focus:border-[var(--accent-primary)] focus:outline-none w-44"
+                                    >
+                                        {FONT_OPTIONS.map((font) => (
+                                            <option key={font} value={font}>{FONT_LABELS[font] || font}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Font Size */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-[var(--text-secondary)]">Font Size</span>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={() => setFontSize(Math.max(8, fontSize - 1))}
+                                            className="w-6 h-6 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center border border-[var(--border-primary)]"
+                                        >
+                                            -
+                                        </button>
+                                        <span className="text-xs text-[var(--text-primary)] w-8 text-center tabular-nums">{fontSize}px</span>
+                                        <button
+                                            onClick={() => setFontSize(Math.min(32, fontSize + 1))}
+                                            className="w-6 h-6 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xs flex items-center justify-center border border-[var(--border-primary)]"
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Tab Size */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs text-[var(--text-secondary)]">Tab Size</span>
+                                    <div className="flex items-center gap-1 bg-[var(--bg-tertiary)] rounded p-0.5 border border-[var(--border-primary)]">
+                                        {[2, 4, 8].map((size) => (
+                                            <button
+                                                key={size}
+                                                onClick={() => setTabSize(size)}
+                                                className={`px-2.5 py-1 text-xs rounded transition-colors ${
+                                                    tabSize === size
+                                                        ? 'bg-[var(--accent-primary)] text-white'
+                                                        : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                                                }`}
+                                            >
+                                                {size}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Toggles */}
+                                <ToggleRow label="Word Wrap" checked={wordWrap} onChange={setWordWrap} />
+                                <ToggleRow label="Minimap" checked={minimap} onChange={setMinimap} />
+                                <ToggleRow label="Line Numbers" checked={lineNumbers} onChange={setLineNumbers} />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* MCP Servers Tab */}
+                    {activeTab === 'mcp' && <McpSettingsPane />}
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end p-4 border-t border-[var(--border-primary)] shrink-0">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 text-sm text-gray-400 hover:text-white"
+                        className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                     >
                         Done
                     </button>
@@ -314,5 +232,21 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         </div>
     );
 };
+
+const ToggleRow: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, checked, onChange }) => (
+    <div className="flex items-center justify-between">
+        <span className="text-xs text-[var(--text-secondary)]">{label}</span>
+        <button
+            onClick={() => onChange(!checked)}
+            className={`w-9 h-5 rounded-full transition-colors relative ${
+                checked ? 'bg-[var(--accent-primary)]' : 'bg-[var(--bg-tertiary)] border border-[var(--border-primary)]'
+            }`}
+        >
+            <div className={`w-3.5 h-3.5 rounded-full bg-white absolute top-0.5 transition-transform ${
+                checked ? 'translate-x-4' : 'translate-x-0.5'
+            }`} />
+        </button>
+    </div>
+);
 
 export default SettingsModal;

@@ -212,14 +212,14 @@ export default function PresetPicker({ onSelectVariant, onBack }: PresetPickerPr
       <div className="text-center mb-8">
         <button
           onClick={onBack}
-          className="absolute top-6 left-6 text-gray-400 hover:text-white"
+          className="absolute top-6 left-6 text-[var(--text-muted)] hover:text-white"
         >
           ← Back
         </button>
         <h1 className="text-3xl font-bold text-white mb-2">
           Choose a Category
         </h1>
-        <p className="text-gray-400">
+        <p className="text-[var(--text-muted)]">
           What kind of project do you want to make?
         </p>
       </div>
@@ -232,7 +232,7 @@ export default function PresetPicker({ onSelectVariant, onBack }: PresetPickerPr
             <button
               key={preset.id}
               onClick={() => setSelectedPreset(preset)}
-              className="group relative overflow-hidden rounded-2xl bg-[#27272a] p-6 text-left transition-all hover:scale-105 hover:shadow-xl"
+              className="group relative overflow-hidden rounded-2xl bg-[var(--bg-tertiary)] p-6 text-left transition-all hover:scale-105 hover:shadow-xl"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${preset.color} opacity-0 group-hover:opacity-20 transition-opacity`} />
 
@@ -241,13 +241,13 @@ export default function PresetPicker({ onSelectVariant, onBack }: PresetPickerPr
               </div>
 
               <h3 className="text-xl font-bold text-white mb-1">{preset.name}</h3>
-              <p className="text-gray-400 mb-3">{preset.description}</p>
+              <p className="text-[var(--text-muted)] mb-3">{preset.description}</p>
 
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-[var(--text-muted)]">
                   {preset.variants.length} templates
                 </span>
-                <ChevronRight size={20} className="text-gray-600 group-hover:text-white transition-colors" />
+                <ChevronRight size={20} className="text-[var(--text-muted)] group-hover:text-white transition-colors" />
               </div>
             </button>
           );
@@ -272,7 +272,7 @@ function VariantPicker({ preset, onSelect, onBack }: VariantPickerProps) {
       <div className="mb-8">
         <button
           onClick={onBack}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-4"
+          className="flex items-center gap-2 text-[var(--text-muted)] hover:text-white mb-4"
         >
           ← Back to categories
         </button>
@@ -282,7 +282,7 @@ function VariantPicker({ preset, onSelect, onBack }: VariantPickerProps) {
           </div>
           <div>
             <h1 className="text-3xl font-bold text-white">{preset.name}</h1>
-            <p className="text-gray-400">{preset.description}</p>
+            <p className="text-[var(--text-muted)]">{preset.description}</p>
           </div>
         </div>
       </div>
@@ -293,27 +293,27 @@ function VariantPicker({ preset, onSelect, onBack }: VariantPickerProps) {
           <button
             key={variant.id}
             onClick={() => onSelect(variant.id)}
-            className="group bg-[#27272a] rounded-2xl p-6 text-left hover:bg-[#3f3f46] transition-all"
+            className="group bg-[var(--bg-tertiary)] rounded-2xl p-6 text-left hover:bg-[var(--bg-hover)] transition-all"
           >
             <div className="flex items-start justify-between mb-3">
               <h3 className="text-xl font-bold text-white">{variant.name}</h3>
               <DifficultyBadge difficulty={variant.difficulty} />
             </div>
 
-            <p className="text-gray-400 mb-4">{variant.description}</p>
+            <p className="text-[var(--text-muted)] mb-4">{variant.description}</p>
 
             <div className="flex flex-wrap gap-2">
               {variant.features.map((feature, i) => (
                 <span
                   key={i}
-                  className="text-xs px-2 py-1 bg-[#18181b] text-gray-400 rounded-full"
+                  className="text-xs px-2 py-1 bg-[var(--bg-secondary)] text-[var(--text-muted)] rounded-full"
                 >
                   {feature}
                 </span>
               ))}
             </div>
 
-            <div className="mt-4 flex items-center gap-2 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="mt-4 flex items-center gap-2 text-[var(--accent-primary)] opacity-0 group-hover:opacity-100 transition-opacity">
               <Sparkles size={16} />
               <span className="text-sm font-medium">Start building</span>
               <ChevronRight size={16} />
@@ -327,9 +327,9 @@ function VariantPicker({ preset, onSelect, onBack }: VariantPickerProps) {
 
 function DifficultyBadge({ difficulty }: { difficulty: 'easy' | 'medium' | 'hard' }) {
   const config = {
-    easy: { label: 'Easy', color: 'bg-green-500/20 text-green-400', stars: 1 },
-    medium: { label: 'Medium', color: 'bg-yellow-500/20 text-yellow-400', stars: 2 },
-    hard: { label: 'Hard', color: 'bg-red-500/20 text-red-400', stars: 3 }
+    easy: { label: 'Easy', color: 'bg-[var(--success)]/20 text-[var(--success)]', stars: 1 },
+    medium: { label: 'Medium', color: 'bg-[var(--warning)]/20 text-[var(--warning)]', stars: 2 },
+    hard: { label: 'Hard', color: 'bg-[var(--error)]/20 text-[var(--error)]', stars: 3 }
   };
 
   const { label, color, stars } = config[difficulty];

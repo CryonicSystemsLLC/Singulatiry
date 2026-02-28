@@ -29,17 +29,17 @@ class ErrorBoundary extends Component<Props, State> {
     public render() {
         if (this.state.hasError) {
             return (
-                <div className="h-screen w-screen bg-[#0d0d12] text-red-500 p-8 flex flex-col gap-4 overflow-auto">
+                <div className="h-screen w-screen bg-[var(--bg-primary)] text-[var(--error)] p-8 flex flex-col gap-4 overflow-auto">
                     <h1 className="text-2xl font-bold">Something went wrong.</h1>
-                    <div className="bg-[#1e1e1e] p-4 rounded border border-red-900/50">
+                    <div className="bg-[var(--bg-secondary)] p-4 rounded border border-[var(--error)]/30">
                         <h2 className="font-mono text-lg mb-2">{this.state.error?.toString()}</h2>
-                        <pre className="font-mono text-xs text-gray-400 whitespace-pre-wrap">
+                        <pre className="font-mono text-xs text-[var(--text-muted)] whitespace-pre-wrap">
                             {this.state.errorInfo?.componentStack}
                         </pre>
                     </div>
                     <button
                         onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-500 w-fit"
+                        className="px-4 py-2 bg-[var(--error)] text-[var(--text-primary)] rounded hover:opacity-90 w-fit"
                     >
                         Reload Window
                     </button>

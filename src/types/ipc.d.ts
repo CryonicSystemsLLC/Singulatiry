@@ -285,10 +285,37 @@ declare global {
     modelService: {
       generate: (request: ChatRequest) => Promise<ChatResponse>;
       chat: (request: ChatRequest) => Promise<ChatResponse>;
+      stream: (request: ChatRequest, callbacks: {
+        onChunk?: (chunk: any) => void;
+        onDone?: (response: ChatResponse) => void;
+        onError?: (error: any) => void;
+      }) => () => void;
       toolCall: (request: ChatRequest) => Promise<ChatResponse>;
+      countTokens: (text: string, model?: string) => Promise<number>;
       validateKey: (provider: string, apiKey: string) => Promise<boolean>;
       getModels: () => Promise<Record<string, ModelConfig>>;
       getProviders: () => Promise<Record<string, ProviderConfig>>;
+      getCapabilities: (model: string) => Promise<any>;
+      setDefault: (model: string) => Promise<void>;
+      getDefault: (taskType?: string) => Promise<string>;
+    };
+
+    // AI Autocomplete API
+    aiAutocomplete: {
+      complete: (request: { prefix: string; suffix: string; language: string; filePath?: string }) => Promise<{ completion: string; model: string } | null>;
+    };
+
+    // Persistence API
+    persistence: {
+      getChat: (projectRoot: string) => Promise<any[]>;
+      saveChat: (projectRoot: string, messages: any[]) => Promise<{ success: boolean }>;
+      clearChat: (projectRoot: string) => Promise<{ success: boolean }>;
+      listProjects: () => Promise<string[]>;
+      getSession: () => Promise<any>;
+      saveSession: (state: any) => Promise<{ success: boolean }>;
+      getCostHistory: (days?: number) => Promise<any[]>;
+      addCost: (entry: any) => Promise<{ success: boolean }>;
+      getTotalCost: () => Promise<number>;
     };
 
     // Agent Orchestrator API

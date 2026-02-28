@@ -20,13 +20,13 @@ import {
   ToolCallResponse,
   TokenUsage,
   ToolCall,
-  ModelError,
   ProviderId,
   PROVIDER_CONFIGS,
   MODEL_CONFIGS,
   getModelName
 } from '../types';
 import { OpenAITool } from '../../tools/registry';
+import { handleProviderError, calculateCost as calcCost, readSSELines } from './provider-utils';
 
 interface OpenAIMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -159,7 +159,7 @@ export function createOpenAICompatibleProvider(providerId: ProviderId): ModelPro
       });
 
       if (!response.ok) {
-        throw await handleError(response, providerId);
+        throw await handleProviderError(response, providerId, (s, m) => s === 400 && m.includes('context') ? 'CONTEXT_LENGTH_EXCEEDED' : null);
       }
 
       const data: OpenAIResponse = await response.json();
@@ -173,7 +173,7 @@ export function createOpenAICompatibleProvider(providerId: ProviderId): ModelPro
           promptTokens: data.usage.prompt_tokens,
           completionTokens: data.usage.completion_tokens,
           totalTokens: data.usage.total_tokens,
-          estimatedCost: calculateCost(data.usage, modelConfig)
+          estimatedCost: calcCost(data.usage.prompt_tokens, data.usage.completion_tokens, modelConfig)
         },
         finishReason: mapFinishReason(choice.finish_reason),
         toolCalls: choice.message.tool_calls?.map(tc => ({
@@ -235,90 +235,58 @@ export function createOpenAICompatibleProvider(providerId: ProviderId): ModelPro
       });
 
       if (!response.ok) {
-        throw await handleError(response, providerId);
+        throw await handleProviderError(response, providerId, (s, m) => s === 400 && m.includes('context') ? 'CONTEXT_LENGTH_EXCEEDED' : null);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new ModelError('No response body', 'NETWORK_ERROR', providerId);
-      }
-
-      const decoder = new TextDecoder();
-      let buffer = '';
       let fullContent = '';
       let usage: TokenUsage | undefined;
       let finishReason: 'stop' | 'length' | 'tool_calls' | 'content_filter' = 'stop';
       const toolCalls: Map<number, ToolCall> = new Map();
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      for await (const line of readSSELines(response, providerId)) {
+        if (line === 'data: [DONE]') continue;
+        if (!line.startsWith('data: ')) continue;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
+        try {
+          const json = JSON.parse(line.slice(6)) as OpenAIStreamDelta;
+          const delta = json.choices[0]?.delta;
 
-          for (const line of lines) {
-            const trimmed = line.trim();
-            if (!trimmed || trimmed === 'data: [DONE]') continue;
-            if (!trimmed.startsWith('data: ')) continue;
+          if (delta?.content) {
+            fullContent += delta.content;
+            yield { type: 'content', content: delta.content };
+            request.onChunk?.({ type: 'content', content: delta.content });
+          }
 
-            try {
-              const json = JSON.parse(trimmed.slice(6)) as OpenAIStreamDelta;
-              const delta = json.choices[0]?.delta;
-
-              if (delta?.content) {
-                fullContent += delta.content;
-                yield {
-                  type: 'content',
-                  content: delta.content
-                };
-                request.onChunk?.({ type: 'content', content: delta.content });
+          // Handle tool calls in stream
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              let existing = toolCalls.get(tc.index);
+              if (!existing) {
+                existing = { id: tc.id || '', type: 'function', function: { name: '', arguments: '' } };
+                toolCalls.set(tc.index, existing);
               }
-
-              // Handle tool calls in stream
-              if (delta?.tool_calls) {
-                for (const tc of delta.tool_calls) {
-                  let existing = toolCalls.get(tc.index);
-                  if (!existing) {
-                    existing = {
-                      id: tc.id || '',
-                      type: 'function',
-                      function: { name: '', arguments: '' }
-                    };
-                    toolCalls.set(tc.index, existing);
-                  }
-                  if (tc.id) existing.id = tc.id;
-                  if (tc.function?.name) existing.function.name += tc.function.name;
-                  if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
-
-                  yield {
-                    type: 'tool_call',
-                    toolCall: existing
-                  };
-                }
-              }
-
-              if (json.choices[0]?.finish_reason) {
-                finishReason = json.choices[0].finish_reason;
-              }
-
-              if (json.usage) {
-                usage = {
-                  promptTokens: json.usage.prompt_tokens,
-                  completionTokens: json.usage.completion_tokens,
-                  totalTokens: json.usage.total_tokens,
-                  estimatedCost: calculateCost(json.usage, modelConfig)
-                };
-              }
-            } catch {
-              // Skip malformed JSON
+              if (tc.id) existing.id = tc.id;
+              if (tc.function?.name) existing.function.name += tc.function.name;
+              if (tc.function?.arguments) existing.function.arguments += tc.function.arguments;
+              yield { type: 'tool_call', toolCall: existing };
             }
           }
+
+          if (json.choices[0]?.finish_reason) {
+            finishReason = json.choices[0].finish_reason;
+          }
+
+          if (json.usage) {
+            usage = {
+              promptTokens: json.usage.prompt_tokens,
+              completionTokens: json.usage.completion_tokens,
+              totalTokens: json.usage.total_tokens,
+              estimatedCost: calcCost(json.usage.prompt_tokens, json.usage.completion_tokens, modelConfig),
+            };
+          }
+        } catch {
+          // Skip malformed JSON
         }
-      } finally {
-        reader.releaseLock();
       }
 
       yield { type: 'done' };
@@ -389,7 +357,7 @@ export function createOpenAICompatibleProvider(providerId: ProviderId): ModelPro
       });
 
       if (!response.ok) {
-        throw await handleError(response, providerId);
+        throw await handleProviderError(response, providerId, (s, m) => s === 400 && m.includes('context') ? 'CONTEXT_LENGTH_EXCEEDED' : null);
       }
 
       const data: OpenAIResponse = await response.json();
@@ -403,7 +371,7 @@ export function createOpenAICompatibleProvider(providerId: ProviderId): ModelPro
           promptTokens: data.usage.prompt_tokens,
           completionTokens: data.usage.completion_tokens,
           totalTokens: data.usage.total_tokens,
-          estimatedCost: calculateCost(data.usage, modelConfig)
+          estimatedCost: calcCost(data.usage.prompt_tokens, data.usage.completion_tokens, modelConfig)
         },
         finishReason: mapFinishReason(choice.finish_reason),
         toolCalls: choice.message.tool_calls?.map(tc => ({
@@ -453,34 +421,6 @@ function getHeaders(config: ProviderConfig, apiKey: string): Record<string, stri
 /**
  * Handle API error response
  */
-async function handleError(response: Response, providerId: ProviderId): Promise<ModelError> {
-  let message = `API error: ${response.status} ${response.statusText}`;
-  let code: ModelError['code'] = 'PROVIDER_ERROR';
-
-  try {
-    const error = await response.json();
-    message = error.error?.message || error.message || message;
-
-    if (response.status === 401) {
-      code = 'INVALID_API_KEY';
-    } else if (response.status === 429) {
-      code = 'RATE_LIMITED';
-    } else if (response.status === 400 && message.includes('context')) {
-      code = 'CONTEXT_LENGTH_EXCEEDED';
-    }
-  } catch {
-    // Use default message
-  }
-
-  return new ModelError(
-    message,
-    code,
-    providerId,
-    response.status,
-    response.status === 429 || response.status >= 500
-  );
-}
-
 /**
  * Map OpenAI finish reason to our format
  */
@@ -492,21 +432,6 @@ function mapFinishReason(reason: string): 'stop' | 'length' | 'tool_calls' | 'co
     case 'content_filter': return 'content_filter';
     default: return 'stop';
   }
-}
-
-/**
- * Calculate estimated cost
- */
-function calculateCost(
-  usage: { prompt_tokens: number; completion_tokens: number },
-  modelConfig?: { costPerInputToken: number; costPerOutputToken: number }
-): number | undefined {
-  if (!modelConfig) return undefined;
-
-  const inputCost = (usage.prompt_tokens / 1_000_000) * modelConfig.costPerInputToken;
-  const outputCost = (usage.completion_tokens / 1_000_000) * modelConfig.costPerOutputToken;
-
-  return inputCost + outputCost;
 }
 
 // Export pre-configured providers
