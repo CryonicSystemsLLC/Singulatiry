@@ -1,14 +1,19 @@
 {
   "name": "singularity",
   "private": true,
-  "version": "1.4.0",
+  "version": "2.0.0",
+  "description": "Singularity IDE — A modern code editor with AI integration and VS Code extension support",
+  "author": {
+    "name": "Matt VanEvery",
+    "email": "matt.vanevery@cryonicsystems.com"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
-    "build:win": "tsc && vite build && electron-builder --win",
-    "build:mac": "tsc && vite build && electron-builder --mac",
-    "build:linux": "tsc && vite build && electron-builder --linux",
+    "build": "tsc && vite build && electron-builder -c.npmRebuild=false",
+    "build:win": "tsc && vite build && electron-builder --win -c.npmRebuild=false",
+    "build:mac": "tsc && vite build && electron-builder --mac -c.npmRebuild=false",
+    "build:linux": "tsc && vite build && electron-builder --linux -c.npmRebuild=false",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },
