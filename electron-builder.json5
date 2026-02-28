@@ -1,8 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
-  "appId": "com.antigravity.singularity",
+  "appId": "com.cryonicsystems.singularity",
   "asar": true,
+  "npmRebuild": false,
   "productName": "Singularity",
+  "publish": null,
   "directories": {
     "output": "release/${version}"
   },
