@@ -100,11 +100,16 @@ jobs:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
+      - name: Flatten artifacts
+        run: |
+          mkdir -p installers
+          find windows-installer -type f -name '*.exe' -exec cp {} installers/ \;
+          find linux-deb -type f -name '*.deb' -exec cp {} installers/ \;
+          find mac-installer -type f -name '*.dmg' -exec cp {} installers/ \;
+          ls -la installers/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            windows-installer/*
-            linux-deb/*
-            mac-installer/*
+          files: installers/*
           generate_release_notes: true
