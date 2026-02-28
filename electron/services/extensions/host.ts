@@ -61,10 +61,11 @@ class ExtensionHostManager {
 
   constructor() {
     this.extensionsDir = path.join(app.getPath('userData'), 'extensions');
-    // In dev: electron/services/extensions/extension-host.cjs
-    // In prod: same, relative to APP_ROOT
-    const appRoot = process.env.APP_ROOT || path.join(__dirname, '..');
-    this.hostScriptPath = path.join(appRoot, 'electron', 'services', 'extensions', 'extension-host.cjs');
+    // extension-host.cjs is copied to dist-electron/ by the Vite build plugin.
+    // __dirname resolves to dist-electron/ in both dev and production builds.
+    // In packaged builds, asarUnpack ensures the .cjs files exist on disk
+    // (fork() cannot execute files inside an ASAR archive).
+    this.hostScriptPath = path.join(__dirname, 'extension-host.cjs');
   }
 
   setWindow(win: BrowserWindow) {
@@ -106,6 +107,10 @@ class ExtensionHostManager {
     // detection in tools like Claude CLI, and add required paths
     const extEnv = {
       ...process.env,
+      // CRITICAL: Tell the Electron binary to run as Node.js when forked.
+      // Without this, fork() uses process.execPath (Electron binary) which
+      // would try to launch another Electron instance instead of a Node.js script.
+      ELECTRON_RUN_AS_NODE: '1',
       SINGULARITY_PROJECT_ROOT: projectRoot || '',
       SINGULARITY_EXTENSION_ID: extensionId,
       SINGULARITY_APP_ROOT: app.getAppPath(),

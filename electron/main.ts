@@ -68,9 +68,36 @@ function createWindow() {
   getDebugClient().setWindow(win);
   getMcpServerManager().setWindow(win);
 
-  // Test active push message to Renderer-process.
+  // Once the renderer has fully loaded, start extension hosts.
+  // This ensures the UI appears instantly and extensions don't compete with rendering.
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
+
+    // Preload sidebar extension hosts after renderer is ready
+    setTimeout(async () => {
+      try {
+        const installed: any[] = await extensionIpcHandlers['extensions:list-installed'](null);
+        const sidebarExts = installed.filter((ext: any) => ext.contributions?.viewsContainers?.length);
+        if (sidebarExts.length === 0) return;
+
+        const session = getSessionState();
+        const projectRoot = session.lastProjectRoot || '';
+        const hostMgr = getExtensionHostManager();
+
+        for (let i = 0; i < sidebarExts.length; i++) {
+          const ext = sidebarExts[i];
+          if (!hostMgr.isRunning(ext.id)) {
+            setTimeout(() => {
+              hostMgr.start(ext.id, projectRoot).catch((e: any) => {
+                console.error(`[Preload] Failed to start ${ext.id}:`, e.message);
+              });
+            }, i * 200);
+          }
+        }
+      } catch (e: any) {
+        console.error('[Preload] Error:', e.message);
+      }
+    }, 200);
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -643,32 +670,6 @@ app.whenReady().then(async () => {
   createWindow();
   // Backfill extension contributions for extensions installed before parsing was added
   try { await extensionIpcHandlers['extensions:backfill-contributions'](null); } catch {}
-
-  // Preload sidebar extension hosts shortly after window creation so they're
-  // ready before the user clicks a sidebar icon (eliminates cold-start delay).
-  setTimeout(async () => {
-    try {
-      const installed: any[] = await extensionIpcHandlers['extensions:list-installed'](null);
-      const sidebarExts = installed.filter((ext: any) => ext.contributions?.viewsContainers?.length);
-      if (sidebarExts.length === 0) return;
-
-      const session = getSessionState();
-      const projectRoot = session.lastProjectRoot || '';
-      const hostMgr = getExtensionHostManager();
-
-      for (let i = 0; i < sidebarExts.length; i++) {
-        const ext = sidebarExts[i];
-        if (!hostMgr.isRunning(ext.id)) {
-          // Stagger by 200ms to reduce CPU contention during require()
-          setTimeout(() => {
-            hostMgr.start(ext.id, projectRoot).catch(() => {});
-          }, i * 200);
-        }
-      }
-    } catch {
-      // Extension preloading is best-effort
-    }
-  }, 500);
 
   // Check for extension updates after a short delay (don't block startup)
   setTimeout(async () => {

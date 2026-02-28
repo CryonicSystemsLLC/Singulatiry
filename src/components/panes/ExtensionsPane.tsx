@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Star, Loader2, Download, Check, Trash2, ShieldAlert, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Search, Star, Loader2, Download, Check, Trash2, ShieldAlert, ShieldCheck, Eye, EyeOff, ArrowLeft, ExternalLink, Calendar, Package, Tag } from 'lucide-react';
 
 interface Extension {
     namespace: string;
@@ -35,6 +35,29 @@ interface InstalledExtension {
     installedAt: string;
     extensionPath: string;
     contributions?: ExtensionContribution;
+}
+
+interface MarketplaceDetail {
+    namespace: string;
+    name: string;
+    displayName: string;
+    description: string;
+    version: string;
+    publisher: string;
+    icon?: string;
+    files?: { icon?: string; download?: string; readme?: string; changelog?: string; license?: string };
+    downloadCount?: number;
+    averageRating?: number;
+    reviewCount?: number;
+    verified?: boolean;
+    categories?: string[];
+    tags?: string[];
+    engines?: Record<string, string>;
+    publishedBy?: { loginName: string };
+    readme?: string;
+    lastUpdated?: string;
+    repository?: string;
+    license?: string;
 }
 
 type ViewMode = 'marketplace' | 'installed';
@@ -116,6 +139,8 @@ const ExtensionsPane: React.FC = () => {
     const [installing, setInstalling] = useState<Set<string>>(new Set());
     const [uninstalling, setUninstalling] = useState<Set<string>>(new Set());
     const [selectedInstalled, setSelectedInstalled] = useState<InstalledExtension | null>(null);
+    const [selectedMarketplace, setSelectedMarketplace] = useState<MarketplaceDetail | null>(null);
+    const [loadingDetail, setLoadingDetail] = useState(false);
     const [hiddenIcons, setHiddenIcons] = useState<Set<string>>(new Set());
 
     // Trust dialog state
@@ -221,6 +246,61 @@ const ExtensionsPane: React.FC = () => {
             globalThis.dispatchEvent(new Event('singularity:refresh-activity-bar'));
         } catch {}
     }, [hiddenIcons]);
+
+    const fetchMarketplaceDetail = useCallback(async (ext: Extension) => {
+        setLoadingDetail(true);
+        try {
+            const resp = await fetch(`https://open-vsx.org/api/${ext.namespace}/${ext.name}`);
+            const detail = await resp.json();
+            // Fetch README if available
+            let readme = '';
+            if (detail.files?.readme) {
+                try {
+                    const readmeResp = await fetch(detail.files.readme);
+                    readme = await readmeResp.text();
+                } catch {}
+            }
+            setSelectedMarketplace({
+                namespace: ext.namespace,
+                name: ext.name,
+                displayName: detail.displayName || ext.displayName || ext.name,
+                description: detail.description || ext.description,
+                version: detail.version || ext.version,
+                publisher: getPublisher(detail) || getPublisher(ext),
+                icon: detail.files?.icon || ext.files?.icon || ext.icon,
+                files: detail.files,
+                downloadCount: detail.downloadCount ?? ext.downloadCount,
+                averageRating: detail.averageRating ?? ext.averageRating,
+                reviewCount: detail.reviewCount,
+                verified: detail.verified ?? ext.verified,
+                categories: detail.categories,
+                tags: detail.tags,
+                engines: detail.engines,
+                publishedBy: detail.publishedBy,
+                readme,
+                lastUpdated: detail.timestamp,
+                repository: detail.repository,
+                license: detail.license,
+            });
+        } catch {
+            // Fall back to basic info
+            setSelectedMarketplace({
+                namespace: ext.namespace,
+                name: ext.name,
+                displayName: ext.displayName || ext.name,
+                description: ext.description,
+                version: ext.version,
+                publisher: getPublisher(ext),
+                icon: ext.files?.icon || ext.icon,
+                files: ext.files,
+                downloadCount: ext.downloadCount,
+                averageRating: ext.averageRating,
+                verified: ext.verified,
+            });
+        } finally {
+            setLoadingDetail(false);
+        }
+    }, []);
 
     const fetchExtensions = async (searchQuery: string) => {
         setLoading(true);
@@ -341,7 +421,7 @@ const ExtensionsPane: React.FC = () => {
             {/* View toggle */}
             <div className="flex gap-0.5 mb-3 shrink-0 bg-[var(--bg-tertiary)] rounded p-0.5">
                 <button
-                    onClick={() => { setViewMode('marketplace'); setSelectedInstalled(null); }}
+                    onClick={() => { setViewMode('marketplace'); setSelectedInstalled(null); setSelectedMarketplace(null); }}
                     className={`flex-1 text-[10px] font-medium py-1.5 rounded transition-colors ${
                         viewMode === 'marketplace'
                             ? 'bg-[var(--bg-primary)] text-[var(--text-primary)]'
@@ -351,7 +431,7 @@ const ExtensionsPane: React.FC = () => {
                     Marketplace
                 </button>
                 <button
-                    onClick={() => { setViewMode('installed'); setSelectedInstalled(null); }}
+                    onClick={() => { setViewMode('installed'); setSelectedInstalled(null); setSelectedMarketplace(null); }}
                     className={`flex-1 text-[10px] font-medium py-1.5 rounded transition-colors relative ${
                         viewMode === 'installed'
                             ? 'bg-[var(--bg-primary)] text-[var(--text-primary)]'
@@ -392,14 +472,14 @@ const ExtensionsPane: React.FC = () => {
                 {loading && <div className="flex justify-center py-4"><Loader2 className="animate-spin text-[var(--accent-primary)]" /></div>}
 
                 {/* ---- Marketplace View ---- */}
-                {viewMode === 'marketplace' && !loading && extensions.map((ext) => {
+                {viewMode === 'marketplace' && !loading && !selectedMarketplace && extensions.map((ext) => {
                     const id = `${ext.namespace}.${ext.name}`;
                     const iconUrl = ext.files?.icon || ext.icon;
                     const isInstalled = installedIds.has(id);
                     const isInstalling = installing.has(id);
 
                     return (
-                        <div key={id} className="group flex gap-3 p-2 hover:bg-white/5 rounded cursor-pointer">
+                        <div key={id} className="group flex gap-3 p-2 hover:bg-white/5 rounded cursor-pointer" onClick={() => fetchMarketplaceDetail(ext)}>
                             <div className="w-10 h-10 bg-[var(--bg-tertiary)] rounded overflow-hidden shrink-0 flex items-center justify-center text-xs text-[var(--text-muted)]">
                                 {iconUrl ? <img src={iconUrl} alt="" className="w-full h-full object-cover" /> : 'EXT'}
                             </div>
@@ -446,6 +526,123 @@ const ExtensionsPane: React.FC = () => {
                         </div>
                     );
                 })}
+
+                {/* ---- Marketplace Detail View ---- */}
+                {viewMode === 'marketplace' && selectedMarketplace && (
+                    <div className="space-y-3">
+                        <button
+                            onClick={() => setSelectedMarketplace(null)}
+                            className="text-[10px] text-[var(--accent-primary)] hover:underline mb-2 flex items-center gap-1"
+                        >
+                            <ArrowLeft size={10} /> Back to results
+                        </button>
+                        {loadingDetail ? (
+                            <div className="flex justify-center py-8"><Loader2 className="animate-spin text-[var(--accent-primary)]" size={20} /></div>
+                        ) : (
+                            <>
+                                {/* Header */}
+                                <div className="flex gap-3 items-start">
+                                    <div className="w-14 h-14 bg-[var(--bg-tertiary)] rounded-lg overflow-hidden shrink-0 flex items-center justify-center text-xs text-[var(--text-muted)]">
+                                        {selectedMarketplace.icon ? <img src={selectedMarketplace.icon} alt="" className="w-full h-full object-cover" /> : 'EXT'}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-semibold text-[var(--text-primary)]">{selectedMarketplace.displayName}</div>
+                                        <div className="text-[10px] text-[var(--text-muted)]">
+                                            {selectedMarketplace.publisher} &middot; v{selectedMarketplace.version}
+                                        </div>
+                                        <div className="flex items-center gap-2 mt-1">
+                                            {selectedMarketplace.downloadCount != null && selectedMarketplace.downloadCount > 0 && (
+                                                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-0.5">
+                                                    <Download size={9} /> {formatDownloads(selectedMarketplace.downloadCount)}
+                                                </span>
+                                            )}
+                                            {selectedMarketplace.averageRating != null && selectedMarketplace.averageRating > 0 && (
+                                                <span className="text-[10px] text-[var(--text-muted)] flex items-center gap-0.5">
+                                                    <Star size={9} className="fill-current text-yellow-500" /> {selectedMarketplace.averageRating.toFixed(1)}
+                                                    {selectedMarketplace.reviewCount != null && ` (${selectedMarketplace.reviewCount})`}
+                                                </span>
+                                            )}
+                                            {selectedMarketplace.license && (
+                                                <span className="text-[10px] text-[var(--text-muted)]">{selectedMarketplace.license}</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Actions */}
+                                <div className="flex items-center gap-2">
+                                    {installedIds.has(`${selectedMarketplace.namespace}.${selectedMarketplace.name}`) ? (
+                                        <span className="text-[10px] bg-[var(--success)]/20 text-[var(--success)] px-3 py-1 rounded flex items-center gap-1 font-medium">
+                                            <Check size={10} /> Installed
+                                        </span>
+                                    ) : (
+                                        <button
+                                            className="text-[10px] bg-[var(--info)] text-[var(--text-primary)] px-3 py-1 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
+                                            disabled={installing.has(`${selectedMarketplace.namespace}.${selectedMarketplace.name}`) || !selectedMarketplace.files?.download}
+                                            onClick={() => {
+                                                handleInstall(selectedMarketplace as unknown as Extension);
+                                            }}
+                                        >
+                                            {installing.has(`${selectedMarketplace.namespace}.${selectedMarketplace.name}`)
+                                                ? <><Loader2 size={10} className="animate-spin" /> Installing...</>
+                                                : <><Download size={10} /> Install</>}
+                                        </button>
+                                    )}
+                                    {selectedMarketplace.repository && (
+                                        <button
+                                            className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-secondary)] px-2 py-1 rounded flex items-center gap-1 hover:bg-white/5 transition-colors"
+                                            onClick={() => {
+                                                if (selectedMarketplace.repository) {
+                                                    window.open(selectedMarketplace.repository, '_blank');
+                                                }
+                                            }}
+                                        >
+                                            <ExternalLink size={10} /> Repository
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Description */}
+                                <p className="text-xs text-[var(--text-secondary)]">{selectedMarketplace.description}</p>
+
+                                {/* Categories & Tags */}
+                                {selectedMarketplace.categories && selectedMarketplace.categories.length > 0 && (
+                                    <div className="flex flex-wrap gap-1">
+                                        {selectedMarketplace.categories.map(cat => (
+                                            <span key={cat} className="text-[10px] bg-[var(--accent-bg)] text-[var(--accent-primary)] px-1.5 py-0.5 rounded">
+                                                {cat}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Metadata */}
+                                <div className="space-y-1 text-[10px] text-[var(--text-muted)] border-t border-[var(--border-secondary)] pt-2">
+                                    <div className="flex items-center gap-1"><Package size={10} /> ID: {selectedMarketplace.namespace}.{selectedMarketplace.name}</div>
+                                    <div className="flex items-center gap-1"><Tag size={10} /> Version: {selectedMarketplace.version}</div>
+                                    {selectedMarketplace.lastUpdated && (
+                                        <div className="flex items-center gap-1"><Calendar size={10} /> Updated: {new Date(selectedMarketplace.lastUpdated).toLocaleDateString()}</div>
+                                    )}
+                                    {selectedMarketplace.engines && selectedMarketplace.engines.vscode && (
+                                        <div>VS Code: {selectedMarketplace.engines.vscode}</div>
+                                    )}
+                                </div>
+
+                                {/* README */}
+                                {selectedMarketplace.readme && (
+                                    <div className="border-t border-[var(--border-secondary)] pt-3">
+                                        <h4 className="text-[10px] font-bold text-[var(--text-muted)] uppercase mb-2">README</h4>
+                                        <div
+                                            className="text-xs text-[var(--text-secondary)] prose prose-invert prose-xs max-w-none overflow-y-auto max-h-[400px] leading-relaxed whitespace-pre-wrap break-words"
+                                        >
+                                            {selectedMarketplace.readme}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
 
                 {/* ---- Installed View ---- */}
                 {viewMode === 'installed' && !loading && !selectedInstalled && (
@@ -547,9 +744,9 @@ const ExtensionsPane: React.FC = () => {
                     <div className="space-y-3">
                         <button
                             onClick={() => setSelectedInstalled(null)}
-                            className="text-[10px] text-[var(--accent-primary)] hover:underline mb-2"
+                            className="text-[10px] text-[var(--accent-primary)] hover:underline mb-2 flex items-center gap-1"
                         >
-                            &larr; Back to list
+                            <ArrowLeft size={10} /> Back to list
                         </button>
                         <div className="flex gap-3 items-start">
                             <div className="w-12 h-12 bg-[var(--bg-tertiary)] rounded overflow-hidden shrink-0 flex items-center justify-center text-xs text-[var(--text-muted)]">
@@ -617,8 +814,10 @@ const ExtensionsPane: React.FC = () => {
                             </div>
                         )}
 
-                        <div className="text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border-secondary)]">
-                            Installed: {new Date(selectedInstalled.installedAt).toLocaleDateString()}
+                        <div className="space-y-1 text-[10px] text-[var(--text-muted)] pt-2 border-t border-[var(--border-secondary)]">
+                            <div className="flex items-center gap-1"><Package size={10} /> ID: {selectedInstalled.id}</div>
+                            <div className="flex items-center gap-1"><Tag size={10} /> Version: {selectedInstalled.version}</div>
+                            <div className="flex items-center gap-1"><Calendar size={10} /> Installed: {new Date(selectedInstalled.installedAt).toLocaleDateString()}</div>
                         </div>
 
                         <button

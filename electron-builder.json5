@@ -12,6 +12,12 @@
     "dist",
     "dist-electron"
   ],
+  // extension-host.cjs and vscode-shim.cjs are spawned as child processes via fork().
+  // fork() cannot execute files inside an ASAR archive, so they must be unpacked to disk.
+  "asarUnpack": [
+    "dist-electron/extension-host.cjs",
+    "dist-electron/vscode-shim.cjs"
+  ],
   "mac": {
     "target": [
       {
@@ -44,11 +50,12 @@
   },
   "linux": {
     "target": [
-      "AppImage",
-      "deb",
-      "rpm"
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
     ],
     "category": "Development",
-    "artifactName": "${productName}-Linux-${version}.${ext}"
+    "artifactName": "${productName}-Linux-${version}-${arch}.${ext}"
   }
 }

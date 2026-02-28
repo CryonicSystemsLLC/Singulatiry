@@ -701,6 +701,8 @@ const workspace = {
 const env = {
   appName: 'Singularity',
   appRoot: process.env.SINGULARITY_APP_ROOT || '',
+  appHost: 'desktop',
+  uiKind: 1, // UIKind.Desktop
   language: 'en',
   machineId: 'singularity-' + require('os').hostname(),
   sessionId: Date.now().toString(36),
@@ -724,7 +726,7 @@ const env = {
   get isTelemetryEnabled() { return false; },
   onDidChangeTelemetryEnabled: new EventEmitter().event,
   createTelemetryLogger(sender) {
-    return { logUsage() {}, logError() {}, dispose() {} };
+    return { logUsage() {}, logError() {}, dispose() {}, onDidChangeEnableStates: new EventEmitter().event, isUsageEnabled: false, isErrorsEnabled: false };
   },
   get logLevel() { return 2; }, // Info
   onDidChangeLogLevel: new EventEmitter().event,
@@ -1409,10 +1411,14 @@ function _createExtensionContext(id, extPath) {
   _extensionId = id;
   _extensionPath = extPath;
 
-  // Load configuration defaults from extension's package.json
+  const fs = require('fs');
+  const pathMod = require('path');
+
+  // Load extension's package.json — used for configuration defaults and context.extension.packageJSON
+  let pkg = {};
   try {
-    const pkgPath = require('path').join(extPath, 'package.json');
-    const pkg = JSON.parse(require('fs').readFileSync(pkgPath, 'utf-8'));
+    const pkgPath = pathMod.join(extPath, 'package.json');
+    pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
     const configs = pkg?.contributes?.configuration;
     const configArray = Array.isArray(configs) ? configs : configs ? [configs] : [];
     for (const config of configArray) {
@@ -1426,6 +1432,14 @@ function _createExtensionContext(id, extPath) {
   } catch (e) {
     // No package.json or parse error — continue without defaults
   }
+
+  // Ensure storage directories exist — extensions expect these paths to be writable
+  const storagePath = pathMod.join(extPath, '.storage');
+  const globalStoragePath = pathMod.join(extPath, '.global-storage');
+  const logPath = pathMod.join(extPath, '.logs');
+  try { fs.mkdirSync(storagePath, { recursive: true }); } catch {}
+  try { fs.mkdirSync(globalStoragePath, { recursive: true }); } catch {}
+  try { fs.mkdirSync(logPath, { recursive: true }); } catch {}
 
   const globalStateData = {};
   const workspaceStateData = {};
@@ -1458,15 +1472,15 @@ function _createExtensionContext(id, extPath) {
     extensionUri: Uri.file(extPath),
     extensionPath: extPath,
     environmentVariableCollection: { persistent: false, description: '', replace() {}, append() {}, prepend() {}, get() {}, forEach() {}, delete() {}, clear() {}, getScoped() { return this; } },
-    storageUri: Uri.file(require('path').join(extPath, '.storage')),
-    globalStorageUri: Uri.file(require('path').join(extPath, '.global-storage')),
-    logUri: Uri.file(require('path').join(extPath, '.logs')),
+    storageUri: Uri.file(storagePath),
+    globalStorageUri: Uri.file(globalStoragePath),
+    logUri: Uri.file(logPath),
     extensionMode: ExtensionMode.Production,
-    extension: { id, extensionUri: Uri.file(extPath), extensionPath: extPath, isActive: true, packageJSON: {}, exports: undefined, extensionKind: 1 },
-    logPath: require('path').join(extPath, '.logs'),
-    storagePath: require('path').join(extPath, '.storage'),
-    globalStoragePath: require('path').join(extPath, '.global-storage'),
-    asAbsolutePath(relativePath) { return require('path').join(extPath, relativePath); },
+    extension: { id, extensionUri: Uri.file(extPath), extensionPath: extPath, isActive: true, packageJSON: pkg, exports: undefined, extensionKind: 1 },
+    logPath,
+    storagePath,
+    globalStoragePath,
+    asAbsolutePath(relativePath) { return pathMod.join(extPath, relativePath); },
     languageModelAccessInformation: { onDidChange: new EventEmitter().event, canSendRequest() { return true; } },
   };
 }
@@ -1476,8 +1490,9 @@ function _createExtensionContext(id, extPath) {
 // ============================================================
 
 const vscodeModule = {
-  // Version — mimic VS Code 1.96.0 to satisfy feature checks
-  version: '1.96.0',
+  // Version — mimic a recent VS Code version to satisfy engines.vscode checks.
+  // Must be >= 1.96.2 for OpenAI Codex extension.
+  version: '1.100.0',
 
   // Core types
   Disposable,
