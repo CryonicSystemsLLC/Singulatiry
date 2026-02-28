@@ -22,7 +22,7 @@
         ]
       }
     ],
-    "artifactName": "${productName}-Mac-${version}-Installer.${ext}"
+    "artifactName": "${productName}-Mac-${version}-${arch}-Installer.${ext}"
   },
   "win": {
     "target": [
@@ -34,7 +34,7 @@
         ]
       }
     ],
-    "artifactName": "${productName}-Windows-${version}-Setup.${ext}"
+    "artifactName": "${productName}-Windows-${version}-${arch}-Setup.${ext}"
   },
   "nsis": {
     "oneClick": false,
