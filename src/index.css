@@ -21,16 +21,20 @@ body,
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: var(--scrollbar-track) !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border-primary);
+  background: var(--scrollbar-thumb) !important;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--bg-hover);
+  background: var(--scrollbar-thumb-hover) !important;
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track) !important;
 }
 
 /* Glassmorphism Utilities - REPLACED WITH SOLID COLORS FOR PERFORMANCE */

@@ -24,3 +24,8 @@ release
 *.njsproj
 *.sln
 *.sw?
+.claude/
+stderr.log
+stdout.log
+debug.log
+build_win.log

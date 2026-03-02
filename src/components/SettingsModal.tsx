@@ -28,6 +28,18 @@ const THEME_OPTIONS: { id: Theme; label: string; colors: [string, string, string
     { id: 'dracula',         label: 'Dracula',         colors: ['#282a36', '#bd93f9', '#f8f8f2', '#343746'] },
     { id: 'catppuccin',      label: 'Catppuccin',      colors: ['#1e1e2e', '#cba6f7', '#cdd6f4', '#313244'] },
     { id: 'high-contrast',   label: 'High Contrast',   colors: ['#000000', '#00ffff', '#ffffff', '#1a1a1a'] },
+    { id: 'gruvbox-dark',    label: 'Gruvbox Dark',    colors: ['#282828', '#fe8019', '#ebdbb2', '#504945'] },
+    { id: 'gruvbox-light',   label: 'Gruvbox Light',   colors: ['#fbf1c7', '#d65d0e', '#3c3836', '#ebdbb2'] },
+    { id: 'one-dark',        label: 'One Dark Pro',     colors: ['#282c34', '#61afef', '#abb2bf', '#2c313a'] },
+    { id: 'one-light',       label: 'One Light',       colors: ['#fafafa', '#4078f2', '#383a42', '#e5e5e6'] },
+    { id: 'tokyo-night',     label: 'Tokyo Night',     colors: ['#1a1b26', '#7aa2f7', '#c0caf5', '#232433'] },
+    { id: 'github-dark',     label: 'GitHub Dark',     colors: ['#0d1117', '#58a6ff', '#f0f6fc', '#21262d'] },
+    { id: 'github-light',    label: 'GitHub Light',    colors: ['#ffffff', '#0969da', '#1f2328', '#eaeef2'] },
+    { id: 'rose-pine',       label: 'Rose Pine',       colors: ['#191724', '#c4a7e7', '#e0def4', '#26233a'] },
+    { id: 'rose-pine-dawn',  label: 'Rose Pine Dawn',  colors: ['#faf4ed', '#907aa9', '#575279', '#f2e9e1'] },
+    { id: 'synthwave',       label: 'Synthwave \'84',  colors: ['#262335', '#ff7edb', '#f0e4fc', '#34294f'] },
+    { id: 'ayu-dark',        label: 'Ayu Dark',        colors: ['#0b0e14', '#e6b450', '#bfbdb6', '#151a23'] },
+    { id: 'ayu-light',       label: 'Ayu Light',       colors: ['#fcfcfc', '#ff9940', '#5c6166', '#e8e9eb'] },
 ];
 
 const FONT_OPTIONS = [

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Theme = 'dark' | 'light' | 'midnight' | 'nord' | 'solarized-dark' | 'solarized-light' | 'monokai' | 'dracula' | 'catppuccin' | 'high-contrast';
+export type Theme = 'dark' | 'light' | 'midnight' | 'nord' | 'solarized-dark' | 'solarized-light' | 'monokai' | 'dracula' | 'catppuccin' | 'high-contrast' | 'gruvbox-dark' | 'gruvbox-light' | 'one-dark' | 'one-light' | 'tokyo-night' | 'github-dark' | 'github-light' | 'rose-pine' | 'rose-pine-dawn' | 'synthwave' | 'ayu-dark' | 'ayu-light';
 export type WorkspaceMode = 'standard' | 'ai';
 
 interface SettingsState {

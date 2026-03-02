@@ -380,6 +380,18 @@ app.whenReady().then(async () => {
     '.wasm': 'application/wasm',
   };
 
+  // Dark scrollbar CSS injected at the END of webview HTML for maximum cascade priority.
+  // Separate from the script shim so it works even if JS fails.
+  const webviewScrollbarCSS = `<style id="singularity-scrollbar">
+html { color-scheme: dark !important; }
+body { font-size: 15px !important; }
+*::-webkit-scrollbar { width: 8px !important; height: 8px !important; }
+*::-webkit-scrollbar-track { background: #0d0d12 !important; }
+*::-webkit-scrollbar-thumb { background: #52525b !important; border-radius: 4px !important; }
+*::-webkit-scrollbar-thumb:hover { background: #71717a !important; }
+*::-webkit-scrollbar-corner { background: #0d0d12 !important; }
+</style>`;
+
   // VS Code API shim injected into extension webview HTML
   // Bridges messages between the webview iframe and the parent renderer,
   // which in turn forwards them to the real extension host process via IPC.
@@ -451,13 +463,13 @@ app.whenReady().then(async () => {
     '--vscode-panelTitle-activeForeground': '#e0e0e0',
     '--vscode-panelTitle-inactiveForeground': '#666680',
     '--vscode-widget-shadow': 'rgba(0,0,0,0.36)',
-    '--vscode-scrollbarSlider-background': 'rgba(255,255,255,0.1)',
-    '--vscode-scrollbarSlider-hoverBackground': 'rgba(255,255,255,0.15)',
-    '--vscode-scrollbarSlider-activeBackground': 'rgba(255,255,255,0.2)',
+    '--vscode-scrollbarSlider-background': 'rgba(255,255,255,0.2)',
+    '--vscode-scrollbarSlider-hoverBackground': 'rgba(255,255,255,0.3)',
+    '--vscode-scrollbarSlider-activeBackground': 'rgba(255,255,255,0.4)',
     '--vscode-font-family': '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    '--vscode-font-size': '13px',
+    '--vscode-font-size': '15px',
     '--vscode-editor-font-family': '"Cascadia Code", "Fira Code", Consolas, monospace',
-    '--vscode-editor-font-size': '14px',
+    '--vscode-editor-font-size': '16px',
     '--vscode-checkbox-background': '#1a1a24',
     '--vscode-checkbox-border': '#2a2a3a',
     '--vscode-dropdown-background': '#1a1a24',
@@ -573,6 +585,9 @@ app.whenReady().then(async () => {
           html = '<!DOCTYPE html><html><head>' + injection + '</head><body>' + html + '</body></html>';
         }
 
+        // Inject scrollbar CSS at the very end for maximum cascade priority
+        html += webviewScrollbarCSS;
+
         return new Response(html, {
           status: 200,
           headers: {
@@ -641,6 +656,9 @@ app.whenReady().then(async () => {
         } else {
           html = baseTag + vscodeApiShim + html;
         }
+
+        // Inject scrollbar CSS at the very end for maximum cascade priority
+        html += webviewScrollbarCSS;
 
         return new Response(html, {
           status: 200,
