@@ -36,7 +36,14 @@ jobs:
           path: release/*/Singularity-Windows-*-Setup.exe
 
   build-linux:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -45,30 +52,21 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Install cross-compilation tools for arm64
-        run: |
-          sudo dpkg --add-architecture arm64
-          sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs) main restricted universe multiverse" | sudo tee /etc/apt/sources.list.d/arm64.list
-          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $(lsb_release -cs)-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list.d/arm64.list
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
       - name: Install dependencies
         run: npm ci
 
-      - name: Build x64 and arm64
+      - name: Build ${{ matrix.arch }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npx tsc --noEmit
           npx vite build
-          npx electron-builder --linux deb --x64 --arm64 --config electron-builder.json5
+          npx electron-builder --linux deb --${{ matrix.arch }} --config electron-builder.json5
 
-      - name: Upload Linux .deb files
+      - name: Upload Linux .deb
         uses: actions/upload-artifact@v4
         with:
-          name: linux-debs
+          name: linux-deb-${{ matrix.arch }}
           path: release/*/Singularity-Linux-*.deb
 
   build-mac:
@@ -112,9 +110,9 @@ jobs:
       - name: Flatten artifacts
         run: |
           mkdir -p installers
-          find windows-installers -type f -name '*.exe' -exec cp {} installers/ \;
-          find linux-debs -type f -name '*.deb' -exec cp {} installers/ \;
-          find mac-installers -type f -name '*.dmg' -exec cp {} installers/ \;
+          find . -type f -name '*.exe' -exec cp {} installers/ \;
+          find . -type f -name '*.deb' -exec cp {} installers/ \;
+          find . -type f -name '*.dmg' -exec cp {} installers/ \;
           ls -la installers/
 
       - name: Create GitHub Release
