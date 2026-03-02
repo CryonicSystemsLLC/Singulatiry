@@ -4,6 +4,7 @@
  */
 
 import { execFile } from 'node:child_process';
+import path from 'node:path';
 import { promisify } from 'node:util';
 import { Tool, ToolResult, defineTool } from './registry';
 
@@ -761,6 +762,204 @@ export const gitIpcHandlers: Record<string, (...args: any[]) => Promise<any>> = 
       return { success: true };
     } catch (error: any) {
       return { success: false, error: error.stderr || error.message };
+    }
+  },
+
+  'git:push': async (_event: any, projectRoot: string, remote?: string, branch?: string, setUpstream?: boolean) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    const args = ['push'];
+    if (setUpstream) args.push('-u');
+    if (remote) args.push(remote);
+    if (branch) args.push(branch);
+    try {
+      const { stdout, stderr } = await runGit(args, projectRoot, 60000);
+      return { success: true, output: (stdout || stderr).trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:pull': async (_event: any, projectRoot: string, remote?: string, branch?: string) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    const args = ['pull'];
+    if (remote) args.push(remote);
+    if (branch) args.push(branch);
+    try {
+      const { stdout, stderr } = await runGit(args, projectRoot, 60000);
+      return { success: true, output: (stdout || stderr).trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:fetch': async (_event: any, projectRoot: string, remote?: string) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    const args = remote ? ['fetch', remote] : ['fetch', '--all', '--prune'];
+    try {
+      const { stdout, stderr } = await runGit(args, projectRoot, 60000);
+      return { success: true, output: (stdout || stderr).trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:remote-list': async (_event: any, projectRoot: string) => {
+    if (!projectRoot) return [];
+    try {
+      const { stdout } = await runGit(['remote', '-v'], projectRoot);
+      const remotes: { name: string; fetchUrl: string; pushUrl: string }[] = [];
+      const seen = new Map<string, { fetchUrl: string; pushUrl: string }>();
+      for (const line of stdout.trim().split('\n').filter(Boolean)) {
+        const match = line.match(/^(\S+)\s+(\S+)\s+\((fetch|push)\)$/);
+        if (!match) continue;
+        const [, name, url, type] = match;
+        if (!seen.has(name)) seen.set(name, { fetchUrl: '', pushUrl: '' });
+        const entry = seen.get(name)!;
+        if (type === 'fetch') entry.fetchUrl = url;
+        else entry.pushUrl = url;
+      }
+      for (const [name, urls] of seen) {
+        remotes.push({ name, ...urls });
+      }
+      return remotes;
+    } catch {
+      return [];
+    }
+  },
+
+  'git:remote-add': async (_event: any, projectRoot: string, name: string, url: string) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    if (!name || !url) throw new Error('Remote name and URL are required');
+    try {
+      await runGit(['remote', 'add', name, url], projectRoot);
+      return { success: true };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:remote-remove': async (_event: any, projectRoot: string, name: string) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    if (!name) throw new Error('Remote name is required');
+    try {
+      await runGit(['remote', 'remove', name], projectRoot);
+      return { success: true };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:checkout': async (_event: any, projectRoot: string, branch: string, create?: boolean) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    if (!branch || !branch.trim()) throw new Error('Branch name is required');
+    const name = branch.trim();
+    if (!/^[a-zA-Z0-9_\-/.]+$/.test(name)) {
+      throw new Error('Invalid branch name');
+    }
+    const args = create ? ['checkout', '-b', name] : ['checkout', name];
+    try {
+      const { stdout, stderr } = await runGit(args, projectRoot);
+      return { success: true, branch: name, output: (stdout || stderr).trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:branch-create': async (_event: any, projectRoot: string, name: string, checkout?: boolean) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    if (!name || !name.trim()) throw new Error('Branch name is required');
+    const branchName = name.trim();
+    if (!/^[a-zA-Z0-9_\-/.]+$/.test(branchName)) {
+      throw new Error('Invalid branch name');
+    }
+    try {
+      if (checkout) {
+        const { stdout, stderr } = await runGit(['checkout', '-b', branchName], projectRoot);
+        return { success: true, branch: branchName, output: (stdout || stderr).trim() };
+      }
+      const { stdout } = await runGit(['branch', branchName], projectRoot);
+      return { success: true, branch: branchName, output: stdout.trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:branch-delete': async (_event: any, projectRoot: string, name: string, force?: boolean) => {
+    if (!projectRoot) throw new Error('No project root provided');
+    if (!name || !name.trim()) throw new Error('Branch name is required');
+    const flag = force ? '-D' : '-d';
+    try {
+      const { stdout, stderr } = await runGit(['branch', flag, name.trim()], projectRoot);
+      return { success: true, output: (stdout || stderr).trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
+    }
+  },
+
+  'git:branch-list-all': async (_event: any, projectRoot: string) => {
+    if (!projectRoot) return { current: '', branches: [] };
+    try {
+      // Get current branch
+      const { stdout: headOut } = await runGit(['rev-parse', '--abbrev-ref', 'HEAD'], projectRoot);
+      const current = headOut.trim();
+
+      // Get all branches with tracking info
+      const { stdout } = await runGit(
+        ['for-each-ref', '--format=%(refname:short)\t%(upstream:short)\t%(upstream:track)\t%(objectname:short)', 'refs/heads/', 'refs/remotes/'],
+        projectRoot,
+      );
+
+      interface BranchInfo {
+        name: string;
+        current: boolean;
+        remote: boolean;
+        upstream: string;
+        ahead: number;
+        behind: number;
+        sha: string;
+      }
+
+      const branches: BranchInfo[] = [];
+      for (const line of stdout.trim().split('\n').filter(Boolean)) {
+        const [name, upstream, track, sha] = line.split('\t');
+        if (!name || name === 'HEAD' || name.endsWith('/HEAD')) continue;
+
+        const isRemote = name.includes('/');
+        let ahead = 0;
+        let behind = 0;
+        if (track) {
+          const aheadMatch = track.match(/ahead (\d+)/);
+          const behindMatch = track.match(/behind (\d+)/);
+          if (aheadMatch) ahead = parseInt(aheadMatch[1], 10);
+          if (behindMatch) behind = parseInt(behindMatch[1], 10);
+        }
+
+        branches.push({
+          name,
+          current: name === current,
+          remote: isRemote,
+          upstream: upstream || '',
+          ahead,
+          behind,
+          sha: sha || '',
+        });
+      }
+
+      return { current, branches };
+    } catch (error: any) {
+      return { current: '', branches: [], error: error.message };
+    }
+  },
+
+  'git:clone': async (_event: any, url: string, targetDir: string) => {
+    if (!url || !url.trim()) throw new Error('Clone URL is required');
+    if (!targetDir || !targetDir.trim()) throw new Error('Target directory is required');
+    try {
+      const resolvedDir = path.resolve(targetDir.trim());
+      const { stdout, stderr } = await runGit(['clone', url.trim(), resolvedDir], '.', 120000);
+      return { success: true, path: resolvedDir, output: (stdout || stderr).trim() };
+    } catch (error: any) {
+      throw new Error(error.stderr || error.message);
     }
   },
 };

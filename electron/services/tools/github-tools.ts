@@ -450,4 +450,137 @@ export const githubIpcHandlers: Record<string, (...args: any[]) => Promise<any>>
     );
     return (data.workflow_runs || []).map(mapWorkflowRun);
   },
+
+  // --- User repos ---
+  'github:list-user-repos': async (
+    _event: any,
+    page: number = 1,
+    perPage: number = 30,
+    sort: string = 'updated'
+  ): Promise<any[]> => {
+    const data = await githubFetch(
+      `/user/repos?per_page=${perPage}&page=${page}&sort=${sort}&direction=desc&affiliation=owner,collaborator,organization_member`
+    );
+    return data.map((r: any) => ({
+      full_name: r.full_name,
+      name: r.name,
+      owner: r.owner?.login || '',
+      description: r.description,
+      private: r.private,
+      language: r.language,
+      stargazers_count: r.stargazers_count,
+      updated_at: r.updated_at,
+      clone_url: r.clone_url,
+      ssh_url: r.ssh_url,
+      default_branch: r.default_branch,
+    }));
+  },
+
+  // --- Search repos ---
+  'github:search-repos': async (
+    _event: any,
+    query: string,
+    perPage: number = 15
+  ): Promise<any[]> => {
+    if (!query || !query.trim()) return [];
+    const data = await githubFetch(
+      `/search/repositories?q=${encodeURIComponent(query.trim())}&per_page=${perPage}&sort=updated`
+    );
+    return (data.items || []).map((r: any) => ({
+      full_name: r.full_name,
+      name: r.name,
+      owner: r.owner?.login || '',
+      description: r.description,
+      private: r.private,
+      language: r.language,
+      stargazers_count: r.stargazers_count,
+      updated_at: r.updated_at,
+      clone_url: r.clone_url,
+      ssh_url: r.ssh_url,
+      default_branch: r.default_branch,
+    }));
+  },
+
+  // --- List branches ---
+  'github:list-branches': async (
+    _event: any,
+    owner: string,
+    repo: string,
+    perPage: number = 30
+  ): Promise<any[]> => {
+    const data = await githubFetch(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches?per_page=${perPage}`
+    );
+    return data.map((b: any) => ({
+      name: b.name,
+      sha: b.commit?.sha?.substring(0, 7) || '',
+      protected: b.protected || false,
+    }));
+  },
+
+  // --- Create repo ---
+  'github:create-repo': async (
+    _event: any,
+    name: string,
+    description?: string,
+    isPrivate?: boolean,
+    autoInit?: boolean
+  ): Promise<any> => {
+    const data = await githubFetch('/user/repos', {
+      method: 'POST',
+      body: {
+        name,
+        description: description || '',
+        private: isPrivate ?? true,
+        auto_init: autoInit ?? false,
+      },
+    });
+    return {
+      full_name: data.full_name,
+      name: data.name,
+      owner: data.owner?.login || '',
+      clone_url: data.clone_url,
+      ssh_url: data.ssh_url,
+      html_url: data.html_url,
+      default_branch: data.default_branch,
+    };
+  },
+
+  // --- Detect all remotes ---
+  'github:detect-all-remotes': async (
+    _event: any,
+    cwd: string
+  ): Promise<{ name: string; owner: string; repo: string; url: string }[]> => {
+    try {
+      const { stdout } = await execFileAsync('git', ['remote', '-v'], {
+        cwd,
+        timeout: 5000,
+        windowsHide: true,
+      });
+      const results: { name: string; owner: string; repo: string; url: string }[] = [];
+      const seen = new Set<string>();
+      for (const line of stdout.trim().split('\n').filter(Boolean)) {
+        const match = line.match(/^(\S+)\s+(\S+)\s+\(fetch\)$/);
+        if (!match) continue;
+        const [, remoteName, url] = match;
+        if (seen.has(remoteName)) continue;
+        seen.add(remoteName);
+
+        // SSH
+        const sshMatch = url.match(/git@github\.com:([^/]+)\/(.+?)(?:\.git)?$/);
+        if (sshMatch) {
+          results.push({ name: remoteName, owner: sshMatch[1], repo: sshMatch[2], url });
+          continue;
+        }
+        // HTTPS
+        const httpsMatch = url.match(/github\.com\/([^/]+)\/(.+?)(?:\.git)?$/);
+        if (httpsMatch) {
+          results.push({ name: remoteName, owner: httpsMatch[1], repo: httpsMatch[2], url });
+        }
+      }
+      return results;
+    } catch {
+      return [];
+    }
+  },
 };

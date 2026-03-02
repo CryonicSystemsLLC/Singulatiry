@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Github, RefreshCw, Settings, Loader2, GitPullRequest,
   CircleDot, Bell, Zap, ChevronLeft, MessageSquare,
-  Check, X, ExternalLink,
+  Check, X, ExternalLink, ChevronDown, Search, GitBranch,
+  FolderDown, Star, Lock,
 } from 'lucide-react';
 
 // ============================================================
@@ -88,7 +89,27 @@ interface ChangedFile {
   deletions: number;
 }
 
-type Tab = 'prs' | 'issues' | 'notifs' | 'actions';
+interface RepoEntry {
+  full_name: string;
+  name: string;
+  owner: string;
+  description: string | null;
+  private: boolean;
+  language: string | null;
+  stargazers_count: number;
+  updated_at: string;
+  clone_url: string;
+  ssh_url: string;
+  default_branch: string;
+}
+
+interface GitHubBranch {
+  name: string;
+  sha: string;
+  protected: boolean;
+}
+
+type Tab = 'prs' | 'issues' | 'notifs' | 'actions' | 'branches';
 
 // ============================================================
 // Helpers
@@ -201,6 +222,26 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
   const [repo, setRepo] = useState('');
   const [repoError, setRepoError] = useState('');
 
+  // Repo picker state
+  const [showRepoPicker, setShowRepoPicker] = useState(false);
+  const [repoSearchQuery, setRepoSearchQuery] = useState('');
+  const [repoSearchResults, setRepoSearchResults] = useState<RepoEntry[]>([]);
+  const [userRepos, setUserRepos] = useState<RepoEntry[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [manualRepoInput, setManualRepoInput] = useState('');
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const repoPickerRef = useRef<HTMLDivElement>(null);
+
+  // Clone state
+  const [showClone, setShowClone] = useState(false);
+  const [cloneUrl, setCloneUrl] = useState('');
+  const [cloneTarget, setCloneTarget] = useState('');
+  const [isCloning, setIsCloning] = useState(false);
+  const [cloneResult, setCloneResult] = useState<string | null>(null);
+
+  // Branches state
+  const [ghBranches, setGhBranches] = useState<GitHubBranch[]>([]);
+
   // Tab state
   const [activeTab, setActiveTab] = useState<Tab>('prs');
 
@@ -284,6 +325,11 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
           setRuns(data);
           break;
         }
+        case 'branches': {
+          const data = await ipc.invoke('github:list-branches', owner, repo);
+          setGhBranches(data);
+          break;
+        }
       }
     } catch (err: any) {
       console.error('GitHub fetch error:', err);
@@ -306,6 +352,111 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [hasToken, owner, repo, fetchTabData]);
+
+  // --- Fetch user repos for picker ---
+  const loadUserRepos = useCallback(async () => {
+    setLoadingRepos(true);
+    try {
+      const data = await ipc.invoke('github:list-user-repos');
+      setUserRepos(data);
+    } catch {
+      // silent
+    } finally {
+      setLoadingRepos(false);
+    }
+  }, []);
+
+  // --- Search repos (debounced) ---
+  useEffect(() => {
+    if (!repoSearchQuery.trim()) {
+      setRepoSearchResults([]);
+      return;
+    }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(async () => {
+      try {
+        const data = await ipc.invoke('github:search-repos', repoSearchQuery.trim());
+        setRepoSearchResults(data);
+      } catch {
+        setRepoSearchResults([]);
+      }
+    }, 300);
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, [repoSearchQuery]);
+
+  // --- Close repo picker on outside click ---
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (repoPickerRef.current && !repoPickerRef.current.contains(e.target as Node)) {
+        setShowRepoPicker(false);
+      }
+    };
+    if (showRepoPicker) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showRepoPicker]);
+
+  // --- Select repo ---
+  const selectRepo = useCallback((entry: RepoEntry) => {
+    setOwner(entry.owner);
+    setRepo(entry.name);
+    setRepoError('');
+    setShowRepoPicker(false);
+    setCloneUrl(entry.clone_url);
+    // Reset tab data
+    setPrs([]);
+    setIssues([]);
+    setGhBranches([]);
+    setRuns([]);
+  }, []);
+
+  // --- Manual repo entry ---
+  const handleManualRepo = useCallback(() => {
+    const parts = manualRepoInput.trim().split('/');
+    if (parts.length === 2 && parts[0] && parts[1]) {
+      setOwner(parts[0]);
+      setRepo(parts[1]);
+      setRepoError('');
+      setShowRepoPicker(false);
+      setManualRepoInput('');
+      setPrs([]);
+      setIssues([]);
+      setGhBranches([]);
+      setRuns([]);
+    }
+  }, [manualRepoInput]);
+
+  // --- Clone ---
+  const handleClone = useCallback(async () => {
+    if (!cloneUrl.trim() || !cloneTarget.trim()) return;
+    setIsCloning(true);
+    setCloneResult(null);
+    try {
+      const result = await ipc.invoke('git:clone', cloneUrl.trim(), cloneTarget.trim());
+      setCloneResult(`Cloned to ${result.path}`);
+      setTimeout(() => setCloneResult(null), 6000);
+    } catch (e: any) {
+      setCloneResult(`Clone failed: ${e.message}`);
+    } finally {
+      setIsCloning(false);
+    }
+  }, [cloneUrl, cloneTarget]);
+
+  // --- Set as remote ---
+  const handleSetAsRemote = useCallback(async () => {
+    if (!rootPath || !owner || !repo) return;
+    try {
+      const remotes = await ipc.invoke('git:remote-list', rootPath);
+      const hasOrigin = remotes.some((r: any) => r.name === 'origin');
+      const remoteName = hasOrigin ? 'github' : 'origin';
+      const url = `https://github.com/${owner}/${repo}.git`;
+      await ipc.invoke('git:remote-add', rootPath, remoteName, url);
+      setShowSettings(false);
+    } catch (e: any) {
+      console.error('Failed to add remote:', e);
+    }
+  }, [rootPath, owner, repo]);
 
   // --- PR detail ---
   const openPRDetail = useCallback(async (pr: PR) => {
@@ -566,6 +717,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
     { id: 'issues', icon: CircleDot, label: 'Issues' },
     { id: 'notifs', icon: Bell, label: 'Notifs' },
     { id: 'actions', icon: Zap, label: 'Actions' },
+    { id: 'branches', icon: GitBranch, label: 'Branches' },
   ];
 
   const unreadCount = notifications.filter(n => n.unread).length;
@@ -595,6 +747,14 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
               {user.name && <span className="text-[var(--text-muted)]">({user.name})</span>}
             </div>
           )}
+          {owner && repo && rootPath && (
+            <button
+              onClick={handleSetAsRemote}
+              className="text-[10px] text-[var(--accent-primary)] hover:underline block"
+            >
+              Set {owner}/{repo} as remote
+            </button>
+          )}
           <button
             onClick={handleDisconnect}
             className="text-[10px] text-[var(--error)] hover:underline"
@@ -604,15 +764,147 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
         </div>
       )}
 
-      {/* Repo info */}
-      {owner && repo ? (
-        <div className="text-xs text-[var(--text-muted)] mb-3 shrink-0 flex items-center gap-1">
-          <Github size={12} />
-          <span className="text-[var(--text-secondary)] font-medium">{owner}/{repo}</span>
+      {/* Repo selector */}
+      <div className="mb-3 shrink-0 relative" ref={repoPickerRef}>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setShowRepoPicker(!showRepoPicker);
+              if (!showRepoPicker) loadUserRepos();
+            }}
+            className="flex items-center gap-1.5 text-xs min-w-0 flex-1 hover:bg-white/5 rounded px-1.5 py-1 transition-colors"
+          >
+            <Github size={12} className="text-[var(--text-muted)] shrink-0" />
+            {owner && repo ? (
+              <span className="text-[var(--text-secondary)] font-medium truncate">{owner}/{repo}</span>
+            ) : (
+              <span className="text-[var(--text-muted)]">Select repository...</span>
+            )}
+            <ChevronDown size={12} className="text-[var(--text-muted)] shrink-0" />
+          </button>
+          <button
+            onClick={() => { setShowClone(!showClone); }}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors shrink-0"
+            title="Clone"
+          >
+            <FolderDown size={14} />
+          </button>
         </div>
-      ) : repoError ? (
-        <div className="text-xs text-[var(--warning)] mb-3 shrink-0">{repoError}</div>
-      ) : null}
+
+        {repoError && !owner && (
+          <div className="text-[10px] text-[var(--warning)] mt-1">{repoError}</div>
+        )}
+
+        {/* Repo picker overlay */}
+        {showRepoPicker && (
+          <div className="absolute left-0 right-0 top-[34px] z-50 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md shadow-lg max-h-[360px] flex flex-col overflow-hidden">
+            {/* Search */}
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[var(--border-secondary)]">
+              <Search size={12} className="text-[var(--text-muted)] shrink-0" />
+              <input
+                value={repoSearchQuery}
+                onChange={(e) => setRepoSearchQuery(e.target.value)}
+                placeholder="Search repositories..."
+                className="flex-1 bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder-[var(--text-muted)]"
+                autoFocus
+              />
+              {repoSearchQuery && (
+                <button onClick={() => setRepoSearchQuery('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Manual entry */}
+            <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[var(--border-secondary)]">
+              <input
+                value={manualRepoInput}
+                onChange={(e) => setManualRepoInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleManualRepo()}
+                placeholder="owner/repo"
+                className="flex-1 bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder-[var(--text-muted)]"
+              />
+              <button
+                onClick={handleManualRepo}
+                disabled={!manualRepoInput.includes('/')}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-primary)] text-[var(--text-primary)] disabled:opacity-40 hover:opacity-90"
+              >
+                Go
+              </button>
+            </div>
+
+            <div className="overflow-y-auto">
+              {/* Search results */}
+              {repoSearchQuery && repoSearchResults.length > 0 && (
+                <div>
+                  <div className="text-[9px] font-bold text-[var(--text-muted)] uppercase px-2 py-1 tracking-wider">Search Results</div>
+                  {repoSearchResults.map((r) => (
+                    <RepoRow key={r.full_name} repo={r} onSelect={selectRepo} />
+                  ))}
+                </div>
+              )}
+
+              {/* User repos */}
+              {!repoSearchQuery && (
+                <div>
+                  <div className="text-[9px] font-bold text-[var(--text-muted)] uppercase px-2 py-1 tracking-wider">Your Repositories</div>
+                  {loadingRepos && (
+                    <div className="flex justify-center py-3">
+                      <Loader2 size={14} className="animate-spin text-[var(--accent-primary)]" />
+                    </div>
+                  )}
+                  {!loadingRepos && userRepos.map((r) => (
+                    <RepoRow key={r.full_name} repo={r} onSelect={selectRepo} />
+                  ))}
+                  {!loadingRepos && userRepos.length === 0 && (
+                    <div className="text-xs text-[var(--text-muted)] text-center py-3">No repositories found</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Clone section */}
+      {showClone && (
+        <div className="mb-3 p-3 bg-[var(--bg-tertiary)] rounded space-y-2 shrink-0">
+          <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Clone Repository</div>
+          <input
+            value={cloneUrl}
+            onChange={(e) => setCloneUrl(e.target.value)}
+            placeholder="https://github.com/owner/repo.git"
+            className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] text-xs rounded px-2 py-1.5 border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-muted)]"
+          />
+          <input
+            value={cloneTarget}
+            onChange={(e) => setCloneTarget(e.target.value)}
+            placeholder="Target directory (e.g., C:\Projects\my-repo)"
+            className="w-full bg-[var(--bg-primary)] text-[var(--text-primary)] text-xs rounded px-2 py-1.5 border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-muted)]"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={handleClone}
+              disabled={isCloning || !cloneUrl.trim() || !cloneTarget.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+            >
+              {isCloning ? <Loader2 size={11} className="animate-spin" /> : <FolderDown size={11} />}
+              {isCloning ? 'Cloning...' : 'Clone'}
+            </button>
+            <button
+              onClick={() => { setShowClone(false); setCloneResult(null); }}
+              className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] px-2"
+            >
+              Cancel
+            </button>
+          </div>
+          {cloneResult && (
+            <div className={`text-[10px] ${cloneResult.startsWith('Clone failed') ? 'text-[var(--error)]' : 'text-[var(--success)]'}`}>
+              {cloneResult}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="flex gap-0.5 mb-3 shrink-0 bg-[var(--bg-tertiary)] rounded p-0.5">
@@ -800,9 +1092,60 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
             ))}
           </div>
         )}
+
+        {/* ---- Branches Tab ---- */}
+        {activeTab === 'branches' && !loading && (
+          <div className="space-y-1">
+            {ghBranches.length === 0 && <p className="text-xs text-[var(--text-muted)] text-center py-4">No branches</p>}
+            {ghBranches.map(branch => (
+              <div
+                key={branch.name}
+                className="flex items-center gap-2 p-2 hover:bg-white/5 rounded text-xs"
+              >
+                <GitBranch size={14} className="text-[var(--text-muted)] shrink-0" />
+                <span className="text-[var(--text-primary)] font-medium truncate flex-1">{branch.name}</span>
+                {branch.protected && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--warning)]/20 text-[var(--warning)] shrink-0">
+                    protected
+                  </span>
+                )}
+                <span className="text-[10px] text-[var(--text-muted)] font-mono shrink-0">{branch.sha}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 };
+
+// ============================================================
+// RepoRow sub-component
+// ============================================================
+
+function RepoRow({ repo, onSelect }: { repo: RepoEntry; onSelect: (r: RepoEntry) => void }) {
+  return (
+    <button
+      onClick={() => onSelect(repo)}
+      className="w-full text-left px-2 py-1.5 hover:bg-white/5 transition-colors"
+    >
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-[var(--text-primary)] font-medium truncate flex-1">{repo.full_name}</span>
+        {repo.private && <Lock size={10} className="text-[var(--warning)] shrink-0" />}
+        {repo.stargazers_count > 0 && (
+          <span className="flex items-center gap-0.5 text-[10px] text-[var(--text-muted)] shrink-0">
+            <Star size={9} /> {repo.stargazers_count}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-2 mt-0.5">
+        {repo.language && <span className="text-[9px] text-[var(--accent-primary)]">{repo.language}</span>}
+        {repo.description && (
+          <span className="text-[10px] text-[var(--text-muted)] truncate">{repo.description}</span>
+        )}
+      </div>
+    </button>
+  );
+}
 
 export default GitHubPane;

@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GitBranch, Plus, Minus, RefreshCw, Loader2, Sparkles, Check } from 'lucide-react';
+import {
+  GitBranch, Plus, Minus, RefreshCw, Loader2, Sparkles, Check,
+  ChevronDown, ArrowUp, ArrowDown, Search, X,
+} from 'lucide-react';
 
 interface GitPaneProps {
   rootPath: string | null;
@@ -16,6 +19,16 @@ interface GitStatus {
   branch: string;
   files: GitFileEntry[];
   error?: string;
+}
+
+interface BranchInfo {
+  name: string;
+  current: boolean;
+  remote: boolean;
+  upstream: string;
+  ahead: number;
+  behind: number;
+  sha: string;
 }
 
 /**
@@ -57,6 +70,19 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Branch state
+  const [allBranches, setAllBranches] = useState<BranchInfo[]>([]);
+  const [showBranchDropdown, setShowBranchDropdown] = useState(false);
+  const [showCreateBranch, setShowCreateBranch] = useState(false);
+  const [newBranchName, setNewBranchName] = useState('');
+  const [branchFilter, setBranchFilter] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Push/pull state
+  const [isPushing, setIsPushing] = useState(false);
+  const [isPulling, setIsPulling] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+
   // Fetch git status
   const refresh = useCallback(async () => {
     if (!rootPath) {
@@ -81,11 +107,26 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
     }
   }, [rootPath]);
 
+  // Fetch branch list with tracking info
+  const refreshBranches = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      const result = await window.ipcRenderer.invoke('git:branch-list-all', rootPath);
+      if (result.branches) setAllBranches(result.branches);
+    } catch {
+      // silent
+    }
+  }, [rootPath]);
+
   // Auto-refresh every 5 seconds
   useEffect(() => {
     refresh();
+    refreshBranches();
 
-    intervalRef.current = setInterval(refresh, 5000);
+    intervalRef.current = setInterval(() => {
+      refresh();
+      refreshBranches();
+    }, 5000);
 
     return () => {
       if (intervalRef.current) {
@@ -93,7 +134,18 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
         intervalRef.current = null;
       }
     };
-  }, [refresh]);
+  }, [refresh, refreshBranches]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setShowBranchDropdown(false);
+      }
+    };
+    if (showBranchDropdown) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showBranchDropdown]);
 
   // Stage a file
   const stageFile = useCallback(async (filePath: string) => {
@@ -162,6 +214,7 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
       setCommitResult(`Committed: ${hash}`);
       setCommitMessage('');
       await refresh();
+      await refreshBranches();
 
       // Clear result after 4 seconds
       setTimeout(() => setCommitResult(null), 4000);
@@ -170,7 +223,7 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
     } finally {
       setIsCommitting(false);
     }
-  }, [rootPath, commitMessage, gitStatus.files, refresh]);
+  }, [rootPath, commitMessage, gitStatus.files, refresh, refreshBranches]);
 
   // Generate AI commit message
   const generateMessage = useCallback(async () => {
@@ -239,10 +292,111 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
     }
   }, [rootPath, gitStatus.files]);
 
-  // Group files by status
+  // Switch branch
+  const switchBranch = useCallback(async (branchName: string) => {
+    if (!rootPath) return;
+    setShowBranchDropdown(false);
+    try {
+      // If remote branch like "origin/feature", strip remote prefix for checkout
+      let checkoutName = branchName;
+      if (branchName.includes('/')) {
+        const parts = branchName.split('/');
+        // e.g. origin/feature-x → feature-x
+        checkoutName = parts.slice(1).join('/');
+      }
+      await window.ipcRenderer.invoke('git:checkout', rootPath, checkoutName);
+      await refresh();
+      await refreshBranches();
+    } catch (e: any) {
+      setError(`Switch failed: ${e.message}`);
+    }
+  }, [rootPath, refresh, refreshBranches]);
+
+  // Create branch
+  const createBranch = useCallback(async () => {
+    if (!rootPath || !newBranchName.trim()) return;
+    try {
+      await window.ipcRenderer.invoke('git:branch-create', rootPath, newBranchName.trim(), true);
+      setNewBranchName('');
+      setShowCreateBranch(false);
+      await refresh();
+      await refreshBranches();
+    } catch (e: any) {
+      setError(`Create branch failed: ${e.message}`);
+    }
+  }, [rootPath, newBranchName, refresh, refreshBranches]);
+
+  // Push
+  const handlePush = useCallback(async () => {
+    if (!rootPath || isPushing) return;
+    setIsPushing(true);
+    setSyncResult(null);
+    setError(null);
+    try {
+      // Check if current branch has upstream
+      const currentBranch = allBranches.find((b) => b.current);
+      const needsUpstream = !currentBranch?.upstream;
+      await window.ipcRenderer.invoke(
+        'git:push', rootPath, 'origin', needsUpstream ? gitStatus.branch : undefined, needsUpstream,
+      );
+      setSyncResult('Pushed successfully');
+      await refreshBranches();
+      setTimeout(() => setSyncResult(null), 4000);
+    } catch (e: any) {
+      setError(`Push failed: ${e.message}`);
+    } finally {
+      setIsPushing(false);
+    }
+  }, [rootPath, isPushing, allBranches, gitStatus.branch, refreshBranches]);
+
+  // Pull
+  const handlePull = useCallback(async () => {
+    if (!rootPath || isPulling) return;
+    setIsPulling(true);
+    setSyncResult(null);
+    setError(null);
+    try {
+      await window.ipcRenderer.invoke('git:pull', rootPath);
+      setSyncResult('Pulled successfully');
+      await refresh();
+      await refreshBranches();
+      setTimeout(() => setSyncResult(null), 4000);
+    } catch (e: any) {
+      setError(`Pull failed: ${e.message}`);
+    } finally {
+      setIsPulling(false);
+    }
+  }, [rootPath, isPulling, refresh, refreshBranches]);
+
+  // Fetch
+  const handleFetch = useCallback(async () => {
+    if (!rootPath) return;
+    try {
+      await window.ipcRenderer.invoke('git:fetch', rootPath);
+      await refreshBranches();
+    } catch (e: any) {
+      setError(`Fetch failed: ${e.message}`);
+    }
+  }, [rootPath, refreshBranches]);
+
+  // Derived data
   const stagedFiles = gitStatus.files.filter((f) => f.staged);
   const modifiedFiles = gitStatus.files.filter((f) => !f.staged && f.status !== '?');
   const untrackedFiles = gitStatus.files.filter((f) => !f.staged && f.status === '?');
+
+  const currentBranchInfo = allBranches.find((b) => b.current);
+  const aheadCount = currentBranchInfo?.ahead || 0;
+  const behindCount = currentBranchInfo?.behind || 0;
+
+  const localBranches = allBranches.filter((b) => !b.remote);
+  const remoteBranches = allBranches.filter((b) => b.remote);
+
+  const filteredLocal = branchFilter
+    ? localBranches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+    : localBranches;
+  const filteredRemote = branchFilter
+    ? remoteBranches.filter((b) => b.name.toLowerCase().includes(branchFilter.toLowerCase()))
+    : remoteBranches;
 
   // Handle Ctrl+Enter for commit
   const handleKeyDown = useCallback(
@@ -266,23 +420,167 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Header with branch */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
+      {/* Header with branch + push/pull */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-1 shrink-0">
+        <div className="flex items-center gap-1 min-w-0 flex-1" ref={dropdownRef}>
           <GitBranch size={14} className="text-[var(--accent-primary)] shrink-0" />
-          <span className="text-xs font-semibold text-[var(--text-secondary)] truncate">
-            {gitStatus.branch || 'No branch'}
-          </span>
+          <button
+            onClick={() => setShowBranchDropdown(!showBranchDropdown)}
+            className="flex items-center gap-0.5 text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] truncate transition-colors"
+            title="Switch branch"
+          >
+            <span className="truncate">{gitStatus.branch || 'No branch'}</span>
+            <ChevronDown size={12} className="shrink-0" />
+          </button>
+          <button
+            onClick={() => { setShowCreateBranch(true); setShowBranchDropdown(false); }}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-0.5 rounded transition-colors shrink-0"
+            title="New Branch"
+          >
+            <Plus size={12} />
+          </button>
+
+          {/* Branch dropdown */}
+          {showBranchDropdown && (
+            <div className="absolute left-0 right-0 top-[42px] mx-2 z-50 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md shadow-lg max-h-[320px] flex flex-col overflow-hidden">
+              {/* Search */}
+              <div className="flex items-center gap-1 px-2 py-1.5 border-b border-[var(--border-secondary)]">
+                <Search size={12} className="text-[var(--text-muted)] shrink-0" />
+                <input
+                  value={branchFilter}
+                  onChange={(e) => setBranchFilter(e.target.value)}
+                  placeholder="Filter branches..."
+                  className="flex-1 bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder-[var(--text-muted)]"
+                  autoFocus
+                />
+                {branchFilter && (
+                  <button onClick={() => setBranchFilter('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              <div className="overflow-y-auto">
+                {/* Local branches */}
+                {filteredLocal.length > 0 && (
+                  <div>
+                    <div className="text-[9px] font-bold text-[var(--text-muted)] uppercase px-2 py-1 tracking-wider">Local</div>
+                    {filteredLocal.map((b) => (
+                      <button
+                        key={b.name}
+                        onClick={() => switchBranch(b.name)}
+                        disabled={b.current}
+                        className={`w-full text-left px-2 py-1 text-xs flex items-center gap-2 ${
+                          b.current
+                            ? 'text-[var(--accent-primary)] bg-[var(--accent-primary)]/5'
+                            : 'text-[var(--text-secondary)] hover:bg-white/5'
+                        }`}
+                      >
+                        <span className="truncate flex-1">{b.name}</span>
+                        {b.current && <Check size={10} className="shrink-0" />}
+                        {(b.ahead > 0 || b.behind > 0) && (
+                          <span className="text-[9px] text-[var(--text-muted)] shrink-0 flex items-center gap-1">
+                            {b.ahead > 0 && <span className="text-[var(--success)]">↑{b.ahead}</span>}
+                            {b.behind > 0 && <span className="text-[var(--warning)]">↓{b.behind}</span>}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Remote branches */}
+                {filteredRemote.length > 0 && (
+                  <div>
+                    <div className="text-[9px] font-bold text-[var(--text-muted)] uppercase px-2 py-1 tracking-wider border-t border-[var(--border-secondary)]">Remote</div>
+                    {filteredRemote.map((b) => (
+                      <button
+                        key={b.name}
+                        onClick={() => switchBranch(b.name)}
+                        className="w-full text-left px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-white/5 hover:text-[var(--text-secondary)] truncate"
+                      >
+                        {b.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {filteredLocal.length === 0 && filteredRemote.length === 0 && (
+                  <div className="text-xs text-[var(--text-muted)] text-center py-3">No matching branches</div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-        <button
-          onClick={refresh}
-          disabled={isRefreshing}
-          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 rounded"
-          title="Refresh"
-        >
-          <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-        </button>
+
+        {/* Push/Pull/Fetch buttons */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          <button
+            onClick={handlePush}
+            disabled={isPushing}
+            className="flex items-center gap-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors disabled:opacity-40"
+            title={`Push${aheadCount > 0 ? ` (${aheadCount})` : ''}`}
+          >
+            {isPushing ? <Loader2 size={12} className="animate-spin" /> : <ArrowUp size={12} />}
+            {aheadCount > 0 && <span className="text-[9px] font-bold text-[var(--success)]">{aheadCount}</span>}
+          </button>
+          <button
+            onClick={handlePull}
+            disabled={isPulling}
+            className="flex items-center gap-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors disabled:opacity-40"
+            title={`Pull${behindCount > 0 ? ` (${behindCount})` : ''}`}
+          >
+            {isPulling ? <Loader2 size={12} className="animate-spin" /> : <ArrowDown size={12} />}
+            {behindCount > 0 && <span className="text-[9px] font-bold text-[var(--warning)]">{behindCount}</span>}
+          </button>
+          <button
+            onClick={() => { handleFetch(); refresh(); }}
+            disabled={isRefreshing}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 rounded"
+            title="Fetch & Refresh"
+          >
+            <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+          </button>
+        </div>
       </div>
+
+      {/* Ahead/behind bar */}
+      {currentBranchInfo?.upstream && (aheadCount > 0 || behindCount > 0) && (
+        <div className="px-4 pb-1 shrink-0">
+          <div className="text-[9px] text-[var(--text-muted)] flex items-center gap-2">
+            {aheadCount > 0 && <span className="text-[var(--success)]">↑ {aheadCount} ahead</span>}
+            {behindCount > 0 && <span className="text-[var(--warning)]">↓ {behindCount} behind</span>}
+            {aheadCount === 0 && behindCount === 0 && <span>Up to date</span>}
+          </div>
+        </div>
+      )}
+
+      {/* Create branch inline */}
+      {showCreateBranch && (
+        <div className="mx-4 mb-2 flex items-center gap-1 shrink-0">
+          <input
+            value={newBranchName}
+            onChange={(e) => setNewBranchName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && createBranch()}
+            placeholder="New branch name..."
+            className="flex-1 bg-[var(--bg-tertiary)] text-[var(--text-primary)] text-xs rounded px-2 py-1 border border-transparent focus:border-[var(--accent-primary)] focus:outline-none placeholder-[var(--text-muted)]"
+            autoFocus
+          />
+          <button
+            onClick={createBranch}
+            disabled={!newBranchName.trim()}
+            className="text-[10px] px-2 py-1 rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+          >
+            Create
+          </button>
+          <button
+            onClick={() => { setShowCreateBranch(false); setNewBranchName(''); }}
+            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] p-0.5"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
 
       {/* Error banner */}
       {error && (
@@ -292,11 +590,17 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
         </div>
       )}
 
-      {/* Success banner */}
+      {/* Success banners */}
       {commitResult && (
         <div className="mx-4 mb-2 px-2 py-1 bg-[var(--success)]/10 border border-[var(--success)]/20 rounded text-[10px] text-[var(--success)] flex items-center gap-1">
           <Check size={10} />
           {commitResult}
+        </div>
+      )}
+      {syncResult && (
+        <div className="mx-4 mb-2 px-2 py-1 bg-[var(--success)]/10 border border-[var(--success)]/20 rounded text-[10px] text-[var(--success)] flex items-center gap-1">
+          <Check size={10} />
+          {syncResult}
         </div>
       )}
 
