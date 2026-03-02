@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Check, Settings, Palette, Code2, Server } from 'lucide-react';
-import { useSettingsStore, Theme } from '../stores/settingsStore';
+import { X, Check, Settings, Palette, Code2, Server, Layout, Bot, Monitor, Plus, Trash2, ChevronDown } from 'lucide-react';
+import { useSettingsStore, Theme, WorkspaceMode } from '../stores/settingsStore';
 import McpSettingsPane from './McpSettingsPane';
 
 interface SettingsModalProps {
@@ -8,9 +8,10 @@ interface SettingsModalProps {
     onClose: () => void;
 }
 
-type SettingsTab = 'appearance' | 'editor' | 'mcp';
+type SettingsTab = 'workspace' | 'appearance' | 'editor' | 'mcp';
 
 const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
+    { id: 'workspace', label: 'Workspace', icon: <Layout size={14} /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette size={14} /> },
     { id: 'editor', label: 'Editor', icon: <Code2 size={14} /> },
     { id: 'mcp', label: 'MCP Servers', icon: <Server size={14} /> },
@@ -47,8 +48,24 @@ const FONT_LABELS: Record<string, string> = {
     "'IBM Plex Mono', Consolas, monospace": 'IBM Plex Mono',
 };
 
+const MODE_OPTIONS: { id: WorkspaceMode; label: string; description: string; icon: React.ReactNode }[] = [
+    {
+        id: 'standard',
+        label: 'Standard Mode',
+        description: 'Traditional IDE layout with code editor, file explorer, terminal, and AI chat sidebar.',
+        icon: <Monitor size={24} />,
+    },
+    {
+        id: 'ai',
+        label: '100% AI Mode',
+        description: 'AI extensions take over the main area. Use Claude Code, Codex, or other AI assistants side-by-side without the code editor.',
+        icon: <Bot size={24} />,
+    },
+];
+
 const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+    const [availableExtensions, setAvailableExtensions] = useState<{ id: string; name: string }[]>([]);
 
     const {
         theme, setTheme,
@@ -58,7 +75,25 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         wordWrap, setWordWrap,
         minimap, setMinimap,
         lineNumbers, setLineNumbers,
+        workspaceMode, setWorkspaceMode,
+        aiModePanels, setAiModePanels,
     } = useSettingsStore();
+
+    // Load extensions with sidebar views when workspace tab is active
+    useEffect(() => {
+        if (!isOpen || activeTab !== 'workspace') return;
+        (async () => {
+            try {
+                const installed: any[] = await window.ipcRenderer.invoke('extensions:list-installed');
+                const exts = installed
+                    .filter((ext: any) => ext.contributions?.viewsContainers?.length > 0)
+                    .map((ext: any) => ({ id: ext.id, name: ext.displayName || ext.name || ext.id }));
+                setAvailableExtensions(exts);
+            } catch {
+                setAvailableExtensions([]);
+            }
+        })();
+    }, [isOpen, activeTab]);
 
     // Close on Escape key
     useEffect(() => {
@@ -115,6 +150,105 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
 
                 {/* Scrollable Content */}
                 <div className="overflow-y-auto flex-1">
+                    {/* Workspace Tab */}
+                    {activeTab === 'workspace' && (
+                        <div className="p-4 space-y-6">
+                            {/* Mode Selection */}
+                            <div>
+                                <span className="text-sm font-medium text-[var(--text-primary)] mb-3 block">Workspace Mode</span>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {MODE_OPTIONS.map((mode) => {
+                                        const isSelected = workspaceMode === mode.id;
+                                        return (
+                                            <button
+                                                key={mode.id}
+                                                onClick={() => {
+                                                    if (mode.id === 'ai' && workspaceMode !== 'ai') {
+                                                        setAiModePanels(['']);
+                                                    }
+                                                    setWorkspaceMode(mode.id);
+                                                }}
+                                                className={`flex flex-col items-start gap-2 p-4 rounded-lg border transition-all text-left ${
+                                                    isSelected
+                                                        ? 'border-[var(--accent-primary)] bg-[var(--accent-bg)]'
+                                                        : 'border-[var(--border-primary)] hover:border-[var(--bg-hover)]'
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <div className={`${isSelected ? 'text-[var(--accent-primary)]' : 'text-[var(--text-muted)]'}`}>
+                                                        {mode.icon}
+                                                    </div>
+                                                    {isSelected && (
+                                                        <Check size={14} className="text-[var(--accent-primary)]" />
+                                                    )}
+                                                </div>
+                                                <span className="text-xs font-medium text-[var(--text-primary)]">{mode.label}</span>
+                                                <span className="text-[11px] text-[var(--text-muted)] leading-relaxed">{mode.description}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* AI Panel Configuration (only when AI mode) */}
+                            {workspaceMode === 'ai' && (
+                                <div>
+                                    <span className="text-sm font-medium text-[var(--text-primary)] mb-3 block">AI Panels</span>
+                                    <div className="space-y-2">
+                                        {aiModePanels.map((panelExtId, index) => (
+                                                <div key={index} className="flex items-center gap-2">
+                                                    <span className="text-xs text-[var(--text-muted)] w-16 shrink-0">
+                                                        Panel {index + 1}
+                                                    </span>
+                                                    <div className="relative flex-1">
+                                                        <select
+                                                            value={panelExtId}
+                                                            onChange={(e) => {
+                                                                const updated = [...aiModePanels];
+                                                                updated[index] = e.target.value;
+                                                                setAiModePanels(updated);
+                                                            }}
+                                                            className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] text-xs rounded px-2 py-1.5 border border-[var(--border-primary)] focus:border-[var(--accent-primary)] focus:outline-none appearance-none pr-7"
+                                                        >
+                                                            <option value="">Select extension...</option>
+                                                            {availableExtensions.map((ext) => (
+                                                                <option key={ext.id} value={ext.id}>{ext.name}</option>
+                                                            ))}
+                                                        </select>
+                                                        <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none" />
+                                                    </div>
+                                                    <button
+                                                        onClick={() => {
+                                                            const updated = aiModePanels.filter((_, i) => i !== index);
+                                                            setAiModePanels(updated);
+                                                        }}
+                                                        className="p-1.5 rounded text-[var(--text-muted)] hover:text-[var(--error)] hover:bg-[var(--bg-tertiary)] transition-colors"
+                                                        title="Remove panel"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
+                                        ))}
+
+                                        <button
+                                            onClick={() => setAiModePanels([...aiModePanels, ''])}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded bg-[var(--bg-tertiary)] hover:bg-[var(--bg-hover)] text-[var(--text-secondary)] transition-colors border border-dashed border-[var(--border-primary)]"
+                                        >
+                                            <Plus size={12} />
+                                            Add Panel
+                                        </button>
+
+                                        {availableExtensions.length === 0 && (
+                                            <p className="text-[11px] text-[var(--text-dim)]">
+                                                No extensions with sidebar views installed. Install an AI extension from the Extensions pane first.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Appearance Tab */}
                     {activeTab === 'appearance' && (
                         <div className="p-4">

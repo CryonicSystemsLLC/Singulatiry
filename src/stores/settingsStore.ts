@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 export type Theme = 'dark' | 'light' | 'midnight' | 'nord' | 'solarized-dark' | 'solarized-light' | 'monokai' | 'dracula' | 'catppuccin' | 'high-contrast';
+export type WorkspaceMode = 'standard' | 'ai';
 
 interface SettingsState {
   theme: Theme;
@@ -10,6 +11,8 @@ interface SettingsState {
   wordWrap: boolean;
   minimap: boolean;
   lineNumbers: boolean;
+  workspaceMode: WorkspaceMode;
+  aiModePanels: string[];
 
   setTheme: (theme: Theme) => void;
   setFontSize: (size: number) => void;
@@ -18,6 +21,8 @@ interface SettingsState {
   setWordWrap: (wrap: boolean) => void;
   setMinimap: (enabled: boolean) => void;
   setLineNumbers: (enabled: boolean) => void;
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
+  setAiModePanels: (panels: string[]) => void;
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -28,6 +33,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   wordWrap: localStorage.getItem('singularity_word_wrap') === 'true',
   minimap: localStorage.getItem('singularity_minimap') !== 'false',
   lineNumbers: localStorage.getItem('singularity_line_numbers') !== 'false',
+  workspaceMode: (localStorage.getItem('singularity_workspace_mode') as WorkspaceMode) || 'standard',
+  aiModePanels: JSON.parse(localStorage.getItem('singularity_ai_mode_panels') || '[]'),
 
   setTheme: (theme) => {
     localStorage.setItem('singularity_theme', theme);
@@ -39,5 +46,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setTabSize: (tabSize) => { localStorage.setItem('singularity_tab_size', String(tabSize)); set({ tabSize }); },
   setWordWrap: (wordWrap) => { localStorage.setItem('singularity_word_wrap', String(wordWrap)); set({ wordWrap }); },
   setMinimap: (minimap) => { localStorage.setItem('singularity_minimap', String(minimap)); set({ minimap }); },
-  setLineNumbers: (lineNumbers) => { localStorage.setItem('singularity_line_numbers', String(lineNumbers)); set({ lineNumbers }); }
+  setLineNumbers: (lineNumbers) => { localStorage.setItem('singularity_line_numbers', String(lineNumbers)); set({ lineNumbers }); },
+  setWorkspaceMode: (workspaceMode) => { localStorage.setItem('singularity_workspace_mode', workspaceMode); set({ workspaceMode }); },
+  setAiModePanels: (aiModePanels) => { localStorage.setItem('singularity_ai_mode_panels', JSON.stringify(aiModePanels)); set({ aiModePanels }); }
 }));

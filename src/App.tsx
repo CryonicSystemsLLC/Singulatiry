@@ -10,6 +10,7 @@ import TabBar from './components/TabBar';
 import ResizeHandle from './components/ResizeHandle';
 import CommandPalette, { Command } from './components/CommandPalette';
 import SettingsModal from './components/SettingsModal';
+import AIModePanelContainer from './components/AIModePanelContainer';
 import { useAppStore } from './stores/appStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useRemoteStore } from './stores/remoteStore';
@@ -19,13 +20,16 @@ import RemotePathDialog from './components/RemotePathDialog';
 import NotificationToast from './components/NotificationToast';
 import {
   FileCode, Terminal, Sidebar as SidebarIcon, MessageSquare,
-  FolderOpen, Save, Search, Palette, RotateCcw, Settings
+  FolderOpen, Save, Search, Palette, RotateCcw, Settings, Bot
 } from 'lucide-react';
 import React from 'react';
 
 function App() {
   const editorRef = useRef<CodeEditorRef>(null);
   const theme = useSettingsStore(s => s.theme);
+  const workspaceMode = useSettingsStore(s => s.workspaceMode);
+  const aiModePanels = useSettingsStore(s => s.aiModePanels);
+  const setWorkspaceMode = useSettingsStore(s => s.setWorkspaceMode);
 
   // Apply data-theme on mount and when theme changes
   useEffect(() => {
@@ -83,6 +87,40 @@ function App() {
 
   // Active view state for sidebar
   const [activeView, setActiveView] = React.useState<SidebarView>('explorer');
+
+  // In AI mode, extension icons fill the first empty panel slot; built-in views toggle sidebar
+  const handleViewChange = useCallback((view: SidebarView) => {
+    if (workspaceMode === 'ai' && view.startsWith('ext:')) {
+      const extId = view.replace('ext:', '');
+      const panels = useSettingsStore.getState().aiModePanels;
+      // Find first empty slot and fill it
+      const emptyIdx = panels.indexOf('');
+      if (emptyIdx >= 0) {
+        const updated = [...panels];
+        updated[emptyIdx] = extId;
+        useSettingsStore.getState().setAiModePanels(updated);
+      }
+      return;
+    }
+    if (workspaceMode === 'ai' && !view.startsWith('ext:')) {
+      const appState = useAppStore.getState();
+      if (appState.sidebarVisible && activeView === view) {
+        appState.toggleSidebar();
+      } else {
+        if (!appState.sidebarVisible) appState.toggleSidebar();
+        setActiveView(view);
+      }
+      return;
+    }
+    setActiveView(view);
+  }, [workspaceMode, activeView]);
+
+  // Hide sidebar when entering AI mode
+  useEffect(() => {
+    if (workspaceMode !== 'ai') return;
+    const appState = useAppStore.getState();
+    if (appState.sidebarVisible) appState.toggleSidebar();
+  }, [workspaceMode]);
 
   // Settings modal
   const [settingsOpen, setSettingsOpen] = React.useState(false);
@@ -192,13 +230,27 @@ function App() {
       action: () => setSettingsOpen(true)
     },
     {
+      id: 'workspace.toggleAiMode',
+      label: 'Toggle AI Mode',
+      category: 'Workspace',
+      icon: <Bot size={14} />,
+      action: () => {
+        if (workspaceMode === 'ai') {
+          setWorkspaceMode('standard');
+        } else {
+          useSettingsStore.getState().setAiModePanels(['']);
+          setWorkspaceMode('ai');
+        }
+      }
+    },
+    {
       id: 'view.reload',
       label: 'Reload Window',
       category: 'Developer',
       icon: <RotateCcw size={14} />,
       action: () => window.location.reload()
     }
-  ], [activeTab, activeTabIndex, handleFileSave, toggleSidebar, toggleTerminal, toggleChat, setQuickOpen, setCommandPalette, openFolderAction, closeTab]);
+  ], [activeTab, activeTabIndex, handleFileSave, toggleSidebar, toggleTerminal, toggleChat, setQuickOpen, setCommandPalette, openFolderAction, closeTab, workspaceMode, setWorkspaceMode]);
 
   // Register keybindings
   useEffect(() => {
@@ -293,7 +345,17 @@ function App() {
       {/* Activity Bar */}
       <ActivityBar
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
+        aiMode={workspaceMode === 'ai'}
+        activeExtensions={aiModePanels.filter(p => p !== '')}
+        onToggleWorkspaceMode={() => {
+          if (workspaceMode === 'ai') {
+            setWorkspaceMode('standard');
+          } else {
+            useSettingsStore.getState().setAiModePanels(['']);
+            setWorkspaceMode('ai');
+          }
+        }}
       />
 
       {/* Sidebar */}
@@ -311,61 +373,70 @@ function App() {
         </>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col h-full min-w-0 bg-[var(--bg-primary)]/50">
-        {/* Tab Bar */}
-        <TabBar />
-
-        {/* Editor Area */}
-        <div className="flex-1 relative min-h-0">
-          {activeTab?.isWelcome ? (
-            <WelcomeTab />
-          ) : activeTab ? (
-            <CodeEditor
-              ref={editorRef}
-              initialValue={activeTab.content}
-              language={activeTab.language}
-              onChange={() => {
-                if (activeTabIndex >= 0) {
-                  markTabDirty(activeTabIndex, true);
-                }
-              }}
-              onSave={handleFileSave}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
-              <div className="text-center">
-                <FileCode size={48} className="mx-auto mb-4 opacity-30" />
-                <p className="text-lg">Open a file to get started</p>
-                <p className="text-sm mt-2 text-[var(--text-dim)]">{modKey}+P to open a file, {modKey}+O to open a folder</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Terminal Resize Handle + Terminal */}
-        {terminalVisible && (
-          <>
-            <ResizeHandle direction="vertical" onResize={(d) => setTerminalHeight(useAppStore.getState().terminalHeight - d)} />
-            <div style={{ height: terminalHeight }} className="border-t border-[var(--border-secondary)] shrink-0">
-              <TerminalPane />
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Chat Resize Handle + AI Chat Pane */}
-      {chatVisible && (
+      {/* Main Content — Standard vs AI Mode */}
+      {workspaceMode === 'ai' ? (
+        <AIModePanelContainer
+          panels={aiModePanels}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      ) : (
         <>
-          <ResizeHandle direction="horizontal" onResize={(d) => setChatWidth(useAppStore.getState().chatWidth - d)} />
-          <div style={{ width: chatWidth }} className="h-full border-l border-[var(--border-primary)] shrink-0">
-            <AIChatPane
-              getActiveFileContent={getActiveContent}
-              activeFilePath={activeTab?.path}
-              onApplyCode={handleApplyCode}
-              projectRoot={projectRoot}
-            />
+          <div className="flex-1 flex flex-col h-full min-w-0 bg-[var(--bg-primary)]/50">
+            {/* Tab Bar */}
+            <TabBar />
+
+            {/* Editor Area */}
+            <div className="flex-1 relative min-h-0">
+              {activeTab?.isWelcome ? (
+                <WelcomeTab />
+              ) : activeTab ? (
+                <CodeEditor
+                  ref={editorRef}
+                  initialValue={activeTab.content}
+                  language={activeTab.language}
+                  onChange={() => {
+                    if (activeTabIndex >= 0) {
+                      markTabDirty(activeTabIndex, true);
+                    }
+                  }}
+                  onSave={handleFileSave}
+                />
+              ) : (
+                <div className="flex items-center justify-center h-full text-[var(--text-muted)]">
+                  <div className="text-center">
+                    <FileCode size={48} className="mx-auto mb-4 opacity-30" />
+                    <p className="text-lg">Open a file to get started</p>
+                    <p className="text-sm mt-2 text-[var(--text-dim)]">{modKey}+P to open a file, {modKey}+O to open a folder</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Terminal Resize Handle + Terminal */}
+            {terminalVisible && (
+              <>
+                <ResizeHandle direction="vertical" onResize={(d) => setTerminalHeight(useAppStore.getState().terminalHeight - d)} />
+                <div style={{ height: terminalHeight }} className="border-t border-[var(--border-secondary)] shrink-0">
+                  <TerminalPane />
+                </div>
+              </>
+            )}
           </div>
+
+          {/* Chat Resize Handle + AI Chat Pane */}
+          {chatVisible && (
+            <>
+              <ResizeHandle direction="horizontal" onResize={(d) => setChatWidth(useAppStore.getState().chatWidth - d)} />
+              <div style={{ width: chatWidth }} className="h-full border-l border-[var(--border-primary)] shrink-0">
+                <AIChatPane
+                  getActiveFileContent={getActiveContent}
+                  activeFilePath={activeTab?.path}
+                  onApplyCode={handleApplyCode}
+                  projectRoot={projectRoot}
+                />
+              </div>
+            </>
+          )}
         </>
       )}
 

@@ -36,9 +36,11 @@ interface AppState {
   sidebarVisible: boolean;
   terminalVisible: boolean;
   chatVisible: boolean;
+  aiPanelSplitRatio: number;
   setSidebarWidth: (w: number) => void;
   setChatWidth: (w: number) => void;
   setTerminalHeight: (h: number) => void;
+  setAiPanelSplitRatio: (ratio: number) => void;
   toggleSidebar: () => void;
   toggleTerminal: () => void;
   toggleChat: () => void;
@@ -141,6 +143,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // Layout
+  aiPanelSplitRatio: 0.5,
   sidebarWidth: 256,
   chatWidth: 320,
   terminalHeight: 192,
@@ -150,6 +153,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSidebarWidth: (w) => set({ sidebarWidth: Math.max(140, Math.min(800, w)) }),
   setChatWidth: (w) => set({ chatWidth: Math.max(250, Math.min(1200, w)) }),
   setTerminalHeight: (h) => set({ terminalHeight: Math.max(80, Math.min(600, h)) }),
+  setAiPanelSplitRatio: (ratio) => set({ aiPanelSplitRatio: Math.max(0.2, Math.min(0.8, ratio)) }),
   toggleSidebar: () => set((s) => ({ sidebarVisible: !s.sidebarVisible })),
   toggleTerminal: () => set((s) => ({ terminalVisible: !s.terminalVisible })),
   toggleChat: () => set((s) => ({ chatVisible: !s.chatVisible })),

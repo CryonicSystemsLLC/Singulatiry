@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Files, Search, Puzzle, Play, GitBranch, Monitor, Github } from 'lucide-react';
+import { Files, Search, Puzzle, Play, GitBranch, Monitor, Github, Bot, MonitorCog } from 'lucide-react';
 
 export type SidebarView = string;
 
@@ -12,6 +12,9 @@ interface ExtensionEntry {
 interface ActivityBarProps {
     activeView: SidebarView;
     onViewChange: (view: SidebarView) => void;
+    aiMode?: boolean;
+    activeExtensions?: string[];
+    onToggleWorkspaceMode?: () => void;
 }
 
 const builtinViews: { id: string; icon: typeof Files; label: string }[] = [
@@ -26,7 +29,7 @@ const builtinViews: { id: string; icon: typeof Files; label: string }[] = [
 
 const ipc = window.ipcRenderer;
 
-const ActivityBar = React.memo<ActivityBarProps>(({ activeView, onViewChange }) => {
+const ActivityBar = React.memo<ActivityBarProps>(({ activeView, onViewChange, aiMode, activeExtensions, onToggleWorkspaceMode }) => {
     const [extensions, setExtensions] = useState<ExtensionEntry[]>([]);
 
     const loadExtensionIcons = useCallback(async () => {
@@ -90,33 +93,55 @@ const ActivityBar = React.memo<ActivityBarProps>(({ activeView, onViewChange }) 
                 </button>
             ))}
 
-            {/* Extension icons — open as editor tabs */}
+            {/* Extension icons */}
             {extensions.length > 0 && (
                 <div className="w-6 border-t border-[var(--border-primary)] my-1" />
             )}
             {extensions.map((ext) => {
                 const viewId = `ext:${ext.extId}`;
+                const isActive = aiMode
+                    ? activeExtensions?.includes(ext.extId) ?? false
+                    : activeView === viewId;
                 return (
                     <button
                         key={ext.extId}
                         onClick={() => onViewChange(viewId)}
                         className={`p-1.5 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)] ${
-                            activeView === viewId
+                            isActive
                                 ? 'bg-[var(--bg-tertiary)]'
                                 : 'hover:bg-[var(--bg-tertiary)]/50'
                         }`}
                         title={ext.displayName}
                         aria-label={ext.displayName}
-                        aria-pressed={activeView === viewId}
+                        aria-pressed={isActive}
                     >
                         {ext.iconUrl ? (
-                            <img src={ext.iconUrl} alt={ext.displayName} className={`w-6 h-6 rounded ${activeView !== viewId ? 'opacity-60 hover:opacity-100' : ''}`} />
+                            <img src={ext.iconUrl} alt={ext.displayName} className={`w-6 h-6 rounded ${!isActive ? 'opacity-60 hover:opacity-100' : ''}`} />
                         ) : (
-                            <Puzzle size={24} strokeWidth={1.5} className={activeView === viewId ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'} />
+                            <Puzzle size={24} strokeWidth={1.5} className={isActive ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'} />
                         )}
                     </button>
                 );
             })}
+
+            {/* Spacer */}
+            <div className="flex-1" />
+
+            {/* Workspace mode toggle */}
+            {onToggleWorkspaceMode && (
+                <button
+                    onClick={onToggleWorkspaceMode}
+                    className={`p-2 rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent-primary)] ${
+                        aiMode
+                            ? 'text-[var(--accent-primary)] bg-[var(--accent-bg)]'
+                            : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+                    }`}
+                    title={aiMode ? 'Switch to Standard Mode' : 'Switch to 100% AI Mode'}
+                    aria-label="Toggle workspace mode"
+                >
+                    {aiMode ? <MonitorCog size={24} strokeWidth={1.5} /> : <Bot size={24} strokeWidth={1.5} />}
+                </button>
+            )}
         </nav>
     );
 });

@@ -8,6 +8,7 @@ import GitHubPane from './panes/GitHubPane';
 import RemotePane from './panes/RemotePane';
 import SidebarExtensionView from './SidebarExtensionView';
 import { SidebarView } from './ActivityBar';
+import { useSettingsStore } from '../stores/settingsStore';
 
 interface SidebarProps {
     activeView: SidebarView;
@@ -21,6 +22,7 @@ const ipc = window.ipcRenderer;
 const Sidebar = React.memo<SidebarProps>(({ activeView, onFileSelect, rootPath, onRootChange }) => {
     const [loadedViews, setLoadedViews] = React.useState<Set<string>>(new Set(['explorer']));
     const [extensionViews, setExtensionViews] = React.useState<string[]>([]);
+    const workspaceMode = useSettingsStore(s => s.workspaceMode);
 
     React.useEffect(() => {
         setLoadedViews(prev => {
@@ -71,8 +73,8 @@ const Sidebar = React.memo<SidebarProps>(({ activeView, onFileSelect, rootPath, 
                 {loadedViews.has('remote') && <RemotePane rootPath={rootPath} onRootChange={onRootChange} />}
             </div>
 
-            {/* Extension sidebar panels — pre-rendered with display:none so iframes load in background */}
-            {extensionViews.map(viewId => (
+            {/* Extension sidebar panels — skip in AI mode to prevent duplicate iframes/listeners */}
+            {workspaceMode !== 'ai' && extensionViews.map(viewId => (
                 <div key={viewId} style={{ display: activeView === viewId ? 'block' : 'none', height: '100%' }}>
                     <SidebarExtensionView extensionId={viewId.replace('ext:', '')} />
                 </div>
