@@ -546,6 +546,27 @@ export const githubIpcHandlers: Record<string, (...args: any[]) => Promise<any>>
     };
   },
 
+  // --- Fork repo ---
+  'github:fork-repo': async (
+    _event: any,
+    owner: string,
+    repo: string
+  ): Promise<any> => {
+    const data = await githubFetch(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/forks`,
+      { method: 'POST', body: {} }
+    );
+    return {
+      full_name: data.full_name,
+      name: data.name,
+      owner: data.owner?.login || '',
+      clone_url: data.clone_url,
+      ssh_url: data.ssh_url,
+      html_url: data.html_url,
+      default_branch: data.default_branch,
+    };
+  },
+
   // --- Detect all remotes ---
   'github:detect-all-remotes': async (
     _event: any,

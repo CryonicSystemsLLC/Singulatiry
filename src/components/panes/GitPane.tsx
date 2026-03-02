@@ -31,6 +31,12 @@ interface BranchInfo {
   sha: string;
 }
 
+interface RemoteInfo {
+  name: string;
+  fetchUrl: string;
+  pushUrl: string;
+}
+
 /**
  * Returns appropriate color classes for a git status indicator
  */
@@ -83,6 +89,13 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
   const [isPulling, setIsPulling] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
+  // Push dialog state
+  const [remotes, setRemotes] = useState<RemoteInfo[]>([]);
+  const [showPushDialog, setShowPushDialog] = useState(false);
+  const [pushRemote, setPushRemote] = useState('origin');
+  const [pushBranch, setPushBranch] = useState('');
+  const pushDialogRef = useRef<HTMLDivElement>(null);
+
   // Fetch git status
   const refresh = useCallback(async () => {
     if (!rootPath) {
@@ -107,12 +120,16 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
     }
   }, [rootPath]);
 
-  // Fetch branch list with tracking info
+  // Fetch branch list with tracking info + remotes
   const refreshBranches = useCallback(async () => {
     if (!rootPath) return;
     try {
-      const result = await window.ipcRenderer.invoke('git:branch-list-all', rootPath);
-      if (result.branches) setAllBranches(result.branches);
+      const [branchResult, remoteList] = await Promise.all([
+        window.ipcRenderer.invoke('git:branch-list-all', rootPath),
+        window.ipcRenderer.invoke('git:remote-list', rootPath),
+      ]);
+      if (branchResult.branches) setAllBranches(branchResult.branches);
+      if (Array.isArray(remoteList)) setRemotes(remoteList);
     } catch {
       // silent
     }
@@ -142,10 +159,13 @@ const GitPane = React.memo<GitPaneProps>(({ rootPath }) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setShowBranchDropdown(false);
       }
+      if (pushDialogRef.current && !pushDialogRef.current.contains(e.target as Node)) {
+        setShowPushDialog(false);
+      }
     };
-    if (showBranchDropdown) document.addEventListener('mousedown', handleClick);
+    if (showBranchDropdown || showPushDialog) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [showBranchDropdown]);
+  }, [showBranchDropdown, showPushDialog]);
 
   // Stage a file
   const stageFile = useCallback(async (filePath: string) => {
@@ -326,10 +346,20 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
     }
   }, [rootPath, newBranchName, refresh, refreshBranches]);
 
-  // Push
-  const handlePush = useCallback(async () => {
+  // Open push dialog
+  const openPushDialog = useCallback(() => {
+    setPushRemote(remotes.length > 0 ? remotes[0].name : 'origin');
+    setPushBranch(gitStatus.branch || '');
+    setShowPushDialog(true);
+  }, [remotes, gitStatus.branch]);
+
+  // Push with selected remote/branch
+  const handlePush = useCallback(async (remote?: string, branch?: string) => {
     if (!rootPath || isPushing) return;
+    const targetRemote = remote || pushRemote || 'origin';
+    const targetBranch = branch || pushBranch || gitStatus.branch;
     setIsPushing(true);
+    setShowPushDialog(false);
     setSyncResult(null);
     setError(null);
     try {
@@ -337,9 +367,9 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
       const currentBranch = allBranches.find((b) => b.current);
       const needsUpstream = !currentBranch?.upstream;
       await window.ipcRenderer.invoke(
-        'git:push', rootPath, 'origin', needsUpstream ? gitStatus.branch : undefined, needsUpstream,
+        'git:push', rootPath, targetRemote, targetBranch, needsUpstream,
       );
-      setSyncResult('Pushed successfully');
+      setSyncResult(`Pushed to ${targetRemote}/${targetBranch}`);
       await refreshBranches();
       setTimeout(() => setSyncResult(null), 4000);
     } catch (e: any) {
@@ -347,7 +377,7 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
     } finally {
       setIsPushing(false);
     }
-  }, [rootPath, isPushing, allBranches, gitStatus.branch, refreshBranches]);
+  }, [rootPath, isPushing, pushRemote, pushBranch, allBranches, gitStatus.branch, refreshBranches]);
 
   // Pull
   const handlePull = useCallback(async () => {
@@ -513,35 +543,96 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
           )}
         </div>
 
-        {/* Push/Pull/Fetch buttons */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          <button
-            onClick={handlePush}
-            disabled={isPushing}
-            className="flex items-center gap-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors disabled:opacity-40"
-            title={`Push${aheadCount > 0 ? ` (${aheadCount})` : ''}`}
-          >
-            {isPushing ? <Loader2 size={12} className="animate-spin" /> : <ArrowUp size={12} />}
-            {aheadCount > 0 && <span className="text-[9px] font-bold text-[var(--success)]">{aheadCount}</span>}
-          </button>
-          <button
-            onClick={handlePull}
-            disabled={isPulling}
-            className="flex items-center gap-0.5 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 rounded transition-colors disabled:opacity-40"
-            title={`Pull${behindCount > 0 ? ` (${behindCount})` : ''}`}
-          >
-            {isPulling ? <Loader2 size={12} className="animate-spin" /> : <ArrowDown size={12} />}
-            {behindCount > 0 && <span className="text-[9px] font-bold text-[var(--warning)]">{behindCount}</span>}
-          </button>
-          <button
-            onClick={() => { handleFetch(); refresh(); }}
-            disabled={isRefreshing}
-            className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 rounded"
-            title="Fetch & Refresh"
-          >
-            <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
-          </button>
-        </div>
+        {/* Refresh */}
+        <button
+          onClick={() => { handleFetch(); refresh(); }}
+          disabled={isRefreshing}
+          className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors p-1 rounded shrink-0"
+          title="Fetch & Refresh"
+        >
+          <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      {/* Push / Pull action bar */}
+      <div className="flex items-center gap-2 px-4 pb-2 shrink-0 relative" ref={pushDialogRef}>
+        <button
+          onClick={openPushDialog}
+          disabled={isPushing}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-40 transition-colors"
+          title="Push to remote"
+        >
+          {isPushing ? <Loader2 size={12} className="animate-spin" /> : <ArrowUp size={12} />}
+          Push
+          {aheadCount > 0 && (
+            <span className="text-[9px] font-bold bg-[var(--success)]/20 text-[var(--success)] px-1 rounded">{aheadCount}</span>
+          )}
+        </button>
+        <button
+          onClick={handlePull}
+          disabled={isPulling}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-40 transition-colors"
+          title="Pull from remote"
+        >
+          {isPulling ? <Loader2 size={12} className="animate-spin" /> : <ArrowDown size={12} />}
+          Pull
+          {behindCount > 0 && (
+            <span className="text-[9px] font-bold bg-[var(--warning)]/20 text-[var(--warning)] px-1 rounded">{behindCount}</span>
+          )}
+        </button>
+
+        {/* Push dialog */}
+        {showPushDialog && (
+          <div className="absolute left-4 top-[36px] z-50 w-[240px] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md shadow-lg p-3 space-y-2">
+            <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Push to Remote</div>
+
+            {/* Remote selector */}
+            <div>
+              <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Remote</label>
+              <select
+                value={pushRemote}
+                onChange={(e) => setPushRemote(e.target.value)}
+                className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] text-xs rounded px-2 py-1.5 border border-transparent focus:border-[var(--accent-primary)] focus:outline-none"
+              >
+                {remotes.map((r) => (
+                  <option key={r.name} value={r.name}>{r.name}</option>
+                ))}
+                {remotes.length === 0 && <option value="origin">origin</option>}
+              </select>
+            </div>
+
+            {/* Branch selector */}
+            <div>
+              <label className="text-[10px] text-[var(--text-muted)] block mb-0.5">Branch</label>
+              <select
+                value={pushBranch}
+                onChange={(e) => setPushBranch(e.target.value)}
+                className="w-full bg-[var(--bg-tertiary)] text-[var(--text-primary)] text-xs rounded px-2 py-1.5 border border-transparent focus:border-[var(--accent-primary)] focus:outline-none"
+              >
+                {localBranches.map((b) => (
+                  <option key={b.name} value={b.name}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => handlePush()}
+                disabled={isPushing}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+              >
+                {isPushing ? <Loader2 size={11} className="animate-spin" /> : <ArrowUp size={11} />}
+                Push
+              </button>
+              <button
+                onClick={() => setShowPushDialog(false)}
+                className="px-3 py-1.5 text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Ahead/behind bar */}
