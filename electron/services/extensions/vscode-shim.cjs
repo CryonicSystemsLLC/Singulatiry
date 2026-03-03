@@ -720,7 +720,7 @@ const env = {
     const uriStr = uri.toString().replace(/^vscode:\/\//, 'singularity://');
     return Promise.resolve(Uri.parse(uriStr));
   },
-  get shell() { return process.platform === 'win32' ? 'cmd.exe' : '/bin/bash'; },
+  get shell() { return process.platform === 'win32' ? 'powershell.exe' : process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash'; },
   get remoteName() { return undefined; },
   get isNewAppInstall() { return false; },
   get isTelemetryEnabled() { return false; },

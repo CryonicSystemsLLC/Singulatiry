@@ -3,7 +3,7 @@ import {
   Github, RefreshCw, Settings, Loader2, GitPullRequest,
   CircleDot, Bell, Zap, ChevronLeft, MessageSquare,
   Check, X, ExternalLink, ChevronDown, Search, GitBranch,
-  FolderDown, Star, Lock, ArrowUp, ArrowDown, Plus,
+  FolderDown, Star, Lock, Plus,
 } from 'lucide-react';
 
 // ============================================================
@@ -248,11 +248,6 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
   const [isCreatingBranch, setIsCreatingBranch] = useState(false);
   const [branchResult, setBranchResult] = useState<string | null>(null);
 
-  // Push/Pull state
-  const [isPushing, setIsPushing] = useState(false);
-  const [isPulling, setIsPulling] = useState(false);
-  const [syncResult, setSyncResult] = useState<string | null>(null);
-
   // Tab state
   const [activeTab, setActiveTab] = useState<Tab>('prs');
 
@@ -477,40 +472,6 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
       setIsCreatingBranch(false);
     }
   }, [rootPath, newBranchName, isCreatingBranch, activeTab, owner, repo]);
-
-  // --- Push ---
-  const handlePush = useCallback(async () => {
-    if (!rootPath || isPushing) return;
-    setIsPushing(true);
-    setSyncResult(null);
-    try {
-      await ipc.invoke('git:push', rootPath);
-      setSyncResult('Pushed successfully');
-      setTimeout(() => setSyncResult(null), 4000);
-    } catch (e: any) {
-      setSyncResult(`Push failed: ${e.message}`);
-      setTimeout(() => setSyncResult(null), 6000);
-    } finally {
-      setIsPushing(false);
-    }
-  }, [rootPath, isPushing]);
-
-  // --- Pull ---
-  const handlePull = useCallback(async () => {
-    if (!rootPath || isPulling) return;
-    setIsPulling(true);
-    setSyncResult(null);
-    try {
-      await ipc.invoke('git:pull', rootPath);
-      setSyncResult('Pulled successfully');
-      setTimeout(() => setSyncResult(null), 4000);
-    } catch (e: any) {
-      setSyncResult(`Pull failed: ${e.message}`);
-      setTimeout(() => setSyncResult(null), 6000);
-    } finally {
-      setIsPulling(false);
-    }
-  }, [rootPath, isPulling]);
 
   // --- Set as remote ---
   const handleSetAsRemote = useCallback(async () => {
@@ -943,35 +904,6 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
           </div>
         )}
       </div>
-
-      {/* Push / Pull bar — always visible when repo is connected */}
-      {rootPath && (
-        <div className="flex items-center gap-2 mb-3 shrink-0">
-          <button
-            onClick={handlePush}
-            disabled={isPushing}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-md bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-50 transition-colors"
-          >
-            {isPushing ? <Loader2 size={14} className="animate-spin" /> : <ArrowUp size={14} />}
-            Push
-          </button>
-          <button
-            onClick={handlePull}
-            disabled={isPulling}
-            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium rounded-md bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)] disabled:opacity-50 transition-colors"
-          >
-            {isPulling ? <Loader2 size={14} className="animate-spin" /> : <ArrowDown size={14} />}
-            Pull
-          </button>
-        </div>
-      )}
-
-      {/* Sync result banner */}
-      {syncResult && (
-        <div className={`mb-3 px-2 py-1 rounded text-[10px] shrink-0 ${syncResult.includes('failed') ? 'bg-[var(--error)]/10 border border-[var(--error)]/20 text-[var(--error)]' : 'bg-[var(--success)]/10 border border-[var(--success)]/20 text-[var(--success)]'}`}>
-          {syncResult}
-        </div>
-      )}
 
       {/* Clone section */}
       {showClone && (

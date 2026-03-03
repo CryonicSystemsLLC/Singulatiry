@@ -115,11 +115,14 @@ function App() {
     setActiveView(view);
   }, [workspaceMode, activeView]);
 
-  // Hide sidebar when entering AI mode
+  // Hide sidebar when entering AI mode, restore it when leaving
   useEffect(() => {
-    if (workspaceMode !== 'ai') return;
     const appState = useAppStore.getState();
-    if (appState.sidebarVisible) appState.toggleSidebar();
+    if (workspaceMode === 'ai') {
+      if (appState.sidebarVisible) appState.toggleSidebar();
+    } else {
+      if (!appState.sidebarVisible) appState.toggleSidebar();
+    }
   }, [workspaceMode]);
 
   // Settings modal

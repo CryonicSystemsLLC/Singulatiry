@@ -106,7 +106,7 @@ function TrustDialog({
                 <div className="flex flex-col gap-2">
                     <button
                         onClick={onTrustAlways}
-                        className="w-full bg-[var(--accent-primary)] text-[var(--text-primary)] text-xs font-medium py-2 rounded hover:opacity-90 flex items-center justify-center gap-2"
+                        className="w-full bg-[var(--accent-primary)] text-[var(--btn-text)] text-xs font-medium py-2 rounded hover:opacity-90 flex items-center justify-center gap-2"
                     >
                         <ShieldCheck size={14} /> Trust Publisher &amp; Install
                     </button>
@@ -440,7 +440,7 @@ const ExtensionsPane: React.FC = () => {
                 >
                     Installed
                     {installedExts.length > 0 && (
-                        <span className="ml-1 bg-[var(--accent-primary)] text-[var(--text-primary)] text-[8px] px-1 rounded-full">
+                        <span className="ml-1 bg-[var(--accent-primary)] text-[var(--btn-text)] text-[8px] px-1 rounded-full">
                             {installedExts.length}
                         </span>
                     )}
@@ -463,7 +463,7 @@ const ExtensionsPane: React.FC = () => {
 
             {/* Toast */}
             {toast && (
-                <div className="fixed bottom-4 right-4 bg-[var(--accent-primary)] text-[var(--text-primary)] px-4 py-2 rounded shadow-lg text-xs z-50 animate-fade-in">
+                <div className="fixed bottom-4 right-4 bg-[var(--accent-primary)] text-[var(--btn-text)] px-4 py-2 rounded shadow-lg text-xs z-50 animate-fade-in">
                     {toast}
                 </div>
             )}
@@ -496,7 +496,7 @@ const ExtensionsPane: React.FC = () => {
                                         </span>
                                     ) : (
                                         <button
-                                            className="text-[10px] bg-[var(--info)] text-[var(--text-primary)] px-2 py-0.5 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
+                                            className="text-[10px] bg-[var(--info)] text-[var(--btn-text)] px-2 py-0.5 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
                                             disabled={isInstalling || !ext.files?.download}
                                             onClick={(e) => {
                                                 e.stopPropagation();
@@ -577,7 +577,7 @@ const ExtensionsPane: React.FC = () => {
                                         </span>
                                     ) : (
                                         <button
-                                            className="text-[10px] bg-[var(--info)] text-[var(--text-primary)] px-3 py-1 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
+                                            className="text-[10px] bg-[var(--info)] text-[var(--btn-text)] px-3 py-1 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
                                             disabled={installing.has(`${selectedMarketplace.namespace}.${selectedMarketplace.name}`) || !selectedMarketplace.files?.download}
                                             onClick={() => {
                                                 handleInstall(selectedMarketplace as unknown as Extension);
@@ -693,7 +693,7 @@ const ExtensionsPane: React.FC = () => {
                                         <div className="flex items-center gap-3 mt-2">
                                             {updateInfo && (
                                                 <button
-                                                    className="text-[10px] bg-[var(--info)] text-[var(--text-primary)] px-2 py-0.5 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
+                                                    className="text-[10px] bg-[var(--info)] text-[var(--btn-text)] px-2 py-0.5 rounded flex items-center gap-1 active:scale-95 transition-transform hover:opacity-90 disabled:opacity-50"
                                                     disabled={isUpdating}
                                                     onClick={(e) => {
                                                         e.stopPropagation();

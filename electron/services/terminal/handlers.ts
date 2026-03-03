@@ -38,10 +38,10 @@ export function registerTerminalHandlers(getWin: () => BrowserWindow | null) {
     killTerminalProcess();
 
     const termShell =
-      process.platform === 'win32' ? 'cmd.exe' :
+      process.platform === 'win32' ? 'powershell.exe' :
       process.platform === 'darwin' ? '/bin/zsh' :
       '/bin/bash';
-    const args = process.platform === 'win32' ? ['/Q'] : [];
+    const args = process.platform === 'win32' ? ['-NoLogo'] : [];
 
     try {
       terminalProcess = spawn(termShell, args, {

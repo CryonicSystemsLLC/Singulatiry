@@ -105,13 +105,24 @@ class ExtensionHostManager {
     // Fork the extension host process
     // Build a clean env for the extension host — remove vars that cause nested-session
     // detection in tools like Claude CLI, and add required paths
-    // Ensure Git directories are on PATH so extensions can find git.exe and bash.exe
-    const gitBin = 'C:\\Program Files\\Git\\bin';
-    const gitMingw = 'C:\\Program Files\\Git\\mingw64\\bin';
-    const gitCmd = 'C:\\Program Files\\Git\\cmd';
+    // Ensure Git directories are on PATH so extensions can find git
+    const pathSep = process.platform === 'win32' ? ';' : ':';
     const currentPath = process.env.PATH || process.env.Path || '';
-    const ensuredPath = [gitCmd, gitBin, gitMingw].filter(p => !currentPath.includes(p)).join(';')
-      + (currentPath ? ';' + currentPath : '');
+    let ensuredPath = currentPath;
+
+    if (process.platform === 'win32') {
+      // Windows: add Git for Windows directories if not already present
+      const gitDirs = [
+        'C:\\Program Files\\Git\\cmd',
+        'C:\\Program Files\\Git\\bin',
+        'C:\\Program Files\\Git\\mingw64\\bin',
+      ];
+      const missing = gitDirs.filter(p => !currentPath.includes(p));
+      if (missing.length > 0) {
+        ensuredPath = missing.join(pathSep) + pathSep + currentPath;
+      }
+    }
+    // On Linux/macOS, git is typically already on PATH via /usr/bin or /usr/local/bin
 
     const extEnv = {
       ...process.env,
@@ -123,12 +134,14 @@ class ExtensionHostManager {
       SINGULARITY_PROJECT_ROOT: projectRoot || '',
       SINGULARITY_EXTENSION_ID: extensionId,
       SINGULARITY_APP_ROOT: app.getAppPath(),
-      // Claude Code extension needs Git Bash path for spawning claude CLI
-      CLAUDE_CODE_GIT_BASH_PATH: process.env.CLAUDE_CODE_GIT_BASH_PATH || 'C:\\Program Files\\Git\\bin\\bash.exe',
-      GIT_BASH_PATH: process.env.GIT_BASH_PATH || 'C:\\Program Files\\Git\\bin\\bash.exe',
       // Remove vars that prevent nested CLI tools (e.g. Claude CLI) from starting
       CLAUDECODE: undefined as string | undefined,
       CLAUDE_DEV: undefined as string | undefined,
+      // Windows-only: Claude Code extension needs Git Bash path for spawning claude CLI
+      ...(process.platform === 'win32' ? {
+        CLAUDE_CODE_GIT_BASH_PATH: process.env.CLAUDE_CODE_GIT_BASH_PATH || 'C:\\Program Files\\Git\\bin\\bash.exe',
+        GIT_BASH_PATH: process.env.GIT_BASH_PATH || 'C:\\Program Files\\Git\\bin\\bash.exe',
+      } : {}),
     };
 
     const child = fork(this.hostScriptPath, [extensionId, extensionPath, projectRoot || ''], {

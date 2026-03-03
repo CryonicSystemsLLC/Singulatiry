@@ -34,6 +34,9 @@
   --error: #ef4444;
   --info: #3b82f6;
 
+  /* Button text (guaranteed high contrast on --accent-primary and --info backgrounds) */
+  --btn-text: #ffffff;
+
   /* Scrollbar */
   --scrollbar-track: #0d0d12;
   --scrollbar-thumb: #52525b;
@@ -68,6 +71,9 @@
   --error: #dc2626;
   --info: #2563eb;
 
+  /* Button text */
+  --btn-text: #ffffff;
+
   /* Scrollbar */
   --scrollbar-track: #f4f4f5;
   --scrollbar-thumb: #a1a1aa;
@@ -92,6 +98,9 @@
   --warning: #fbbf24;
   --error: #f87171;
   --info: #60a5fa;
+
+  /* Button text */
+  --btn-text: #ffffff;
 
   /* Scrollbar */
   --scrollbar-track: #0b1426;
@@ -118,6 +127,9 @@
   --error: #bf616a;
   --info: #5e81ac;
 
+  /* Button text */
+  --btn-text: #ffffff;
+
   /* Scrollbar */
   --scrollbar-track: #2e3440;
   --scrollbar-thumb: #4c566a;
@@ -142,6 +154,9 @@
   --warning: #b58900;
   --error: #dc322f;
   --info: #268bd2;
+
+  /* Button text */
+  --btn-text: #ffffff;
 
   /* Scrollbar */
   --scrollbar-track: #002b36;
@@ -168,6 +183,9 @@
   --error: #dc322f;
   --info: #268bd2;
 
+  /* Button text */
+  --btn-text: #ffffff;
+
   /* Scrollbar */
   --scrollbar-track: #eee8d5;
   --scrollbar-thumb: #b0bec5;
@@ -192,6 +210,9 @@
   --warning: #e6db74;
   --error: #f92672;
   --info: #66d9ef;
+
+  /* Button text */
+  --btn-text: #1a1a1a;
 
   /* Scrollbar */
   --scrollbar-track: #272822;
@@ -218,6 +239,9 @@
   --error: #ff5555;
   --info: #8be9fd;
 
+  /* Button text */
+  --btn-text: #1a1a1a;
+
   /* Scrollbar */
   --scrollbar-track: #282a36;
   --scrollbar-thumb: #44475a;
@@ -243,6 +267,9 @@
   --error: #f38ba8;
   --info: #89b4fa;
 
+  /* Button text */
+  --btn-text: #1a1a1a;
+
   /* Scrollbar */
   --scrollbar-track: #1e1e2e;
   --scrollbar-thumb: #45475a;
@@ -267,6 +294,9 @@
   --warning: #ffff00;
   --error: #ff3333;
   --info: #00ffff;
+
+  /* Button text */
+  --btn-text: #000000;
 
   /* Scrollbar */
   --scrollbar-track: #000000;
@@ -294,6 +324,7 @@
   --warning: #fabd2f;
   --error: #fb4934;
   --info: #83a598;
+  --btn-text: #1a1a1a;
   --scrollbar-track: #282828;
   --scrollbar-thumb: #665c54;
   --scrollbar-thumb-hover: #928374;
@@ -317,6 +348,7 @@
   --warning: #b57614;
   --error: #cc241d;
   --info: #076678;
+  --btn-text: #ffffff;
   --scrollbar-track: #f2e5bc;
   --scrollbar-thumb: #a89984;
   --scrollbar-thumb-hover: #928374;
@@ -340,6 +372,7 @@
   --warning: #e5c07b;
   --error: #e06c75;
   --info: #56b6c2;
+  --btn-text: #1a1a1a;
   --scrollbar-track: #282c34;
   --scrollbar-thumb: #3e4451;
   --scrollbar-thumb-hover: #636d83;
@@ -363,6 +396,7 @@
   --warning: #c18401;
   --error: #e45649;
   --info: #0184bc;
+  --btn-text: #ffffff;
   --scrollbar-track: #f0f0f0;
   --scrollbar-thumb: #c0c1c5;
   --scrollbar-thumb-hover: #a0a1a7;
@@ -386,6 +420,7 @@
   --warning: #e0af68;
   --error: #f7768e;
   --info: #7dcfff;
+  --btn-text: #1a1a1a;
   --scrollbar-track: #1a1b26;
   --scrollbar-thumb: #292e42;
   --scrollbar-thumb-hover: #565f89;
@@ -409,6 +444,7 @@
   --warning: #d29922;
   --error: #f85149;
   --info: #58a6ff;
+  --btn-text: #ffffff;
   --scrollbar-track: #0d1117;
   --scrollbar-thumb: #30363d;
   --scrollbar-thumb-hover: #6e7681;
@@ -432,6 +468,7 @@
   --warning: #9a6700;
   --error: #cf222e;
   --info: #0969da;
+  --btn-text: #ffffff;
   --scrollbar-track: #f6f8fa;
   --scrollbar-thumb: #8c959f;
   --scrollbar-thumb-hover: #656d76;
@@ -455,6 +492,7 @@
   --warning: #f6c177;
   --error: #eb6f92;
   --info: #31748f;
+  --btn-text: #ffffff;
   --scrollbar-track: #191724;
   --scrollbar-thumb: #393552;
   --scrollbar-thumb-hover: #6e6a86;
@@ -478,6 +516,7 @@
   --warning: #ea9d34;
   --error: #b4637a;
   --info: #286983;
+  --btn-text: #ffffff;
   --scrollbar-track: #fffaf3;
   --scrollbar-thumb: #b4b0be;
   --scrollbar-thumb-hover: #9893a5;
@@ -501,6 +540,7 @@
   --warning: #fede5d;
   --error: #fe4450;
   --info: #36f9f6;
+  --btn-text: #1a1a1a;
   --scrollbar-track: #262335;
   --scrollbar-thumb: #443364;
   --scrollbar-thumb-hover: #7b6995;
@@ -524,6 +564,7 @@
   --warning: #e6b450;
   --error: #d95757;
   --info: #59c2ff;
+  --btn-text: #1a1a1a;
   --scrollbar-track: #0b0e14;
   --scrollbar-thumb: #1c212b;
   --scrollbar-thumb-hover: #636a72;
@@ -547,6 +588,7 @@
   --warning: #f2ae49;
   --error: #e65050;
   --info: #399ee6;
+  --btn-text: #ffffff;
   --scrollbar-track: #f3f4f5;
   --scrollbar-thumb: #c4c7ca;
   --scrollbar-thumb-hover: #abb0b6;

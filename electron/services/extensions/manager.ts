@@ -17,6 +17,25 @@ import { promisify } from 'node:util';
 
 const execAsync = promisify(exec);
 
+/**
+ * Extract a ZIP/VSIX file cross-platform.
+ * - Windows: uses PowerShell Expand-Archive
+ * - Linux/macOS: uses the `unzip` command
+ */
+async function extractZip(zipPath: string, destDir: string): Promise<void> {
+  if (process.platform === 'win32') {
+    await execAsync(
+      `powershell -NoProfile -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${destDir}' -Force"`,
+      { timeout: 30000, windowsHide: true }
+    );
+  } else {
+    await execAsync(
+      `unzip -o "${zipPath}" -d "${destDir}"`,
+      { timeout: 30000 }
+    );
+  }
+}
+
 // ============================================================
 // Types
 // ============================================================
@@ -125,24 +144,36 @@ class ExtensionManager {
 
     await this.ensureDir(this.extensionsDir);
 
-    // Download the VSIX (save as .zip so Expand-Archive accepts it)
+    // Download the VSIX (save as .zip for extraction)
     const vsixPath = path.join(this.extensionsDir, `${id}-${ext.version}.zip`);
 
-    // Try to get a platform-specific download (win32-x64) for extensions with native binaries
+    // Try to get a platform-specific download for extensions with native binaries
+    const platformMap: Record<string, string> = {
+      'win32-x64': 'win32-x64',
+      'win32-arm64': 'win32-arm64',
+      'darwin-x64': 'darwin-x64',
+      'darwin-arm64': 'darwin-arm64',
+      'linux-x64': 'linux-x64',
+      'linux-arm64': 'linux-arm64',
+    };
+    const platformKey = `${process.platform}-${process.arch}`;
+    const openVsxPlatform = platformMap[platformKey];
     let downloadUrl = ext.downloadUrl;
-    try {
-      const platformResp = await fetch(
-        `https://open-vsx.org/api/${ext.namespace}/${ext.name}/win32-x64/${ext.version}`,
-        { signal: AbortSignal.timeout(10000) }
-      );
-      if (platformResp.ok) {
-        const platformData = await platformResp.json() as any;
-        if (platformData.files?.download) {
-          downloadUrl = platformData.files.download;
+    if (openVsxPlatform) {
+      try {
+        const platformResp = await fetch(
+          `https://open-vsx.org/api/${ext.namespace}/${ext.name}/${openVsxPlatform}/${ext.version}`,
+          { signal: AbortSignal.timeout(10000) }
+        );
+        if (platformResp.ok) {
+          const platformData = await platformResp.json() as any;
+          if (platformData.files?.download) {
+            downloadUrl = platformData.files.download;
+          }
         }
+      } catch {
+        // Platform-specific version not available, use default
       }
-    } catch {
-      // Platform-specific version not available, use default
     }
 
     const controller = new AbortController();
@@ -177,12 +208,9 @@ class ExtensionManager {
     }
     await this.ensureDir(extDir);
 
-    // Use PowerShell to extract (available on Windows)
+    // Extract VSIX (cross-platform)
     try {
-      await execAsync(
-        `powershell -NoProfile -Command "Expand-Archive -Path '${vsixPath}' -DestinationPath '${extDir}' -Force"`,
-        { timeout: 30000, windowsHide: true }
-      );
+      await extractZip(vsixPath, extDir);
     } catch (e: any) {
       // Cleanup on failure
       await fs.rm(extDir, { recursive: true, force: true }).catch(() => {});
