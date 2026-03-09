@@ -27,10 +27,14 @@ const TerminalPane = React.memo(() => {
         term.open(terminalRef.current);
         fitAddon.fit();
 
-        // Initialize Backend
+        // Initialize Backend — send initial cols/rows so the PTY matches xterm.js
         const initTerminal = async () => {
             try {
-                const result = await window.ipcRenderer.invoke('terminal:create');
+                const result = await window.ipcRenderer.invoke(
+                    'terminal:create',
+                    term.cols,
+                    term.rows,
+                );
                 if (!result) {
                     term.writeln('\x1b[31mFailed to start shell.\x1b[0m');
                 }
@@ -52,14 +56,43 @@ const TerminalPane = React.memo(() => {
             window.ipcRenderer.send('terminal:write', data);
         });
 
-        // Resize handler
+        // Right-click in terminal: copy selection or paste from clipboard
+        const handleContextMenu = async (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const selection = term.getSelection();
+            if (selection) {
+                // If there's selected text, copy it to clipboard
+                await navigator.clipboard.writeText(selection);
+                term.clearSelection();
+            } else {
+                // If no selection, paste from clipboard
+                try {
+                    const text = await navigator.clipboard.readText();
+                    if (text) {
+                        window.ipcRenderer.send('terminal:write', text);
+                    }
+                } catch {
+                    // Clipboard access denied — ignore
+                }
+            }
+        };
+        terminalRef.current.addEventListener('contextmenu', handleContextMenu);
+
+        // Notify the PTY backend whenever xterm.js dimensions change
+        const resizeDisposable = term.onResize(({ cols, rows }) => {
+            window.ipcRenderer.send('terminal:resize', cols, rows);
+        });
+
+        // Resize handler — refit xterm.js when the window resizes
         const handleResize = () => fitAddon.fit();
         window.addEventListener('resize', handleResize);
 
         // IPC Listener for Menu Actions
         const handleNewTerminal = async () => {
             term.reset();
-            await window.ipcRenderer.invoke('terminal:create');
+            await window.ipcRenderer.invoke('terminal:create', term.cols, term.rows);
             term.focus();
         };
         window.ipcRenderer.on('menu:new-terminal', handleNewTerminal);
@@ -68,6 +101,8 @@ const TerminalPane = React.memo(() => {
             window.removeEventListener('resize', handleResize);
             window.ipcRenderer.removeListener('menu:new-terminal', handleNewTerminal);
             window.ipcRenderer.removeListener('terminal:incoming', handleTerminalData);
+            terminalRef.current?.removeEventListener('contextmenu', handleContextMenu);
+            resizeDisposable.dispose();
             term.dispose();
         };
     }, []);

@@ -282,7 +282,7 @@ export default function ModelConfig({
               />
               <button
                 onClick={addStopSequence}
-                className="px-3 py-2 bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg text-sm hover:bg-[var(--accent-hover)] transition-colors"
+                className="px-3 py-2 bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-lg text-sm hover:bg-[var(--accent-hover)] transition-colors"
               >
                 Add
               </button>
@@ -319,7 +319,7 @@ export default function ModelConfig({
             {onSave && (
               <button
                 onClick={onSave}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-lg hover:bg-[var(--accent-hover)] transition-colors"
               >
                 <Save size={14} />
                 <span className="text-sm">Save Configuration</span>

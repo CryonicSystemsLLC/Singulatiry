@@ -593,7 +593,7 @@ ${context}`;
                         <button
                             onClick={handleSend}
                             disabled={!input.trim()}
-                            className="absolute right-2 bottom-2 p-1.5 bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="absolute right-2 bottom-2 p-1.5 bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-md hover:bg-[var(--accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                             <Send size={14} />
                         </button>

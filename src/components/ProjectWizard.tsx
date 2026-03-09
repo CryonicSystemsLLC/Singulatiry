@@ -146,7 +146,7 @@ export default function ProjectWizard({
           {[1, 2, 3].map(s => (
             <React.Fragment key={s}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                s === step ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]' :
+                s === step ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]' :
                 s < step ? 'bg-[var(--success)]/20 text-[var(--success)]' :
                 'bg-[var(--bg-tertiary)] text-[var(--text-muted)]'
               }`}>
@@ -349,7 +349,7 @@ export default function ProjectWizard({
               <button
                 onClick={() => setStep(s => s + 1)}
                 disabled={!canProceed()}
-                className="flex items-center gap-1 px-4 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-4 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
                 <ChevronRight size={16} />
@@ -358,7 +358,7 @@ export default function ProjectWizard({
               <button
                 onClick={handleCreate}
                 disabled={loading || !canProceed()}
-                className="flex items-center gap-2 px-6 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

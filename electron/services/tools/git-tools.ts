@@ -4,11 +4,52 @@
  */
 
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { Tool, ToolResult, defineTool } from './registry';
 
 const execFileAsync = promisify(execFile);
+
+/**
+ * Build a PATH string that includes common git binary locations.
+ * On Windows, Git for Windows may not be on PATH when Electron launches from a shortcut.
+ * On macOS, /usr/local/bin (Homebrew) and Xcode CLI paths may be missing.
+ * On Linux, git is usually at /usr/bin but we add common extras just in case.
+ */
+function getGitEnv(): NodeJS.ProcessEnv {
+  const pathSep = process.platform === 'win32' ? ';' : ':';
+  const currentPath = process.env.PATH || process.env.Path || '';
+  const extraDirs: string[] = [];
+
+  if (process.platform === 'win32') {
+    const winGitDirs = [
+      'C:\\Program Files\\Git\\cmd',
+      'C:\\Program Files\\Git\\bin',
+      'C:\\Program Files\\Git\\mingw64\\bin',
+      'C:\\Program Files (x86)\\Git\\cmd',
+    ];
+    for (const d of winGitDirs) {
+      if (!currentPath.includes(d) && existsSync(d)) extraDirs.push(d);
+    }
+  } else if (process.platform === 'darwin') {
+    const macDirs = ['/usr/local/bin', '/opt/homebrew/bin', '/usr/bin'];
+    for (const d of macDirs) {
+      if (!currentPath.includes(d)) extraDirs.push(d);
+    }
+  } else {
+    const linuxDirs = ['/usr/bin', '/usr/local/bin'];
+    for (const d of linuxDirs) {
+      if (!currentPath.includes(d)) extraDirs.push(d);
+    }
+  }
+
+  const newPath = extraDirs.length > 0
+    ? extraDirs.join(pathSep) + pathSep + currentPath
+    : currentPath;
+
+  return { ...process.env, PATH: newPath };
+}
 
 /**
  * Helper: run a git command safely using execFile
@@ -19,6 +60,7 @@ async function runGit(args: string[], cwd: string, timeoutMs = 30000): Promise<{
     timeout: timeoutMs,
     maxBuffer: 10 * 1024 * 1024, // 10MB
     windowsHide: true,
+    env: getGitEnv(),
   });
 }
 

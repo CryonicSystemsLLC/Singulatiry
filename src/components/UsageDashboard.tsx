@@ -115,7 +115,7 @@ export default function UsageDashboard({
                 onClick={() => setTimeRange(range)}
                 className={`px-3 py-1 rounded text-sm capitalize transition-colors ${
                   timeRange === range
-                    ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]'
+                    ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                 }`}
               >

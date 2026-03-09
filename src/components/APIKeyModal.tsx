@@ -270,7 +270,7 @@ const APIKeyModal: React.FC<APIKeyModalProps> = ({ isOpen, onClose }) => {
                             <button
                                 onClick={handleSaveKey}
                                 disabled={!apiKey.trim() || isSaving}
-                                className="px-4 py-2 text-sm bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                className="px-4 py-2 text-sm bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--btn-text)] rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                                 {isSaving ? (
                                     <>

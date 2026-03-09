@@ -197,7 +197,7 @@ function TokenSetup({ onAuthenticated }: { onAuthenticated: (user: GitHubUser) =
         <button
           type="submit"
           disabled={validating || !token.trim()}
-          className="w-full bg-[var(--accent-primary)] text-[var(--text-primary)] text-xs font-medium py-2 rounded-md hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full bg-[var(--accent-primary)] text-[var(--btn-text)] text-xs font-medium py-2 rounded-md hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {validating ? <Loader2 size={14} className="animate-spin" /> : <Github size={14} />}
           {validating ? 'Validating...' : 'Connect'}
@@ -654,7 +654,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
               <button
                 onClick={() => handleAddComment(selectedPR.number)}
                 disabled={submittingComment || !newComment.trim()}
-                className="bg-[var(--accent-primary)] text-[var(--text-primary)] px-2 py-1.5 rounded text-xs disabled:opacity-50 hover:opacity-90"
+                className="bg-[var(--accent-primary)] text-[var(--btn-text)] px-2 py-1.5 rounded text-xs disabled:opacity-50 hover:opacity-90"
               >
                 {submittingComment ? <Loader2 size={12} className="animate-spin" /> : 'Send'}
               </button>
@@ -730,7 +730,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
               <button
                 onClick={() => handleAddComment(selectedIssue.number)}
                 disabled={submittingComment || !newComment.trim()}
-                className="bg-[var(--accent-primary)] text-[var(--text-primary)] px-2 py-1.5 rounded text-xs disabled:opacity-50 hover:opacity-90"
+                className="bg-[var(--accent-primary)] text-[var(--btn-text)] px-2 py-1.5 rounded text-xs disabled:opacity-50 hover:opacity-90"
               >
                 {submittingComment ? <Loader2 size={12} className="animate-spin" /> : 'Send'}
               </button>
@@ -866,7 +866,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
               <button
                 onClick={handleManualRepo}
                 disabled={!manualRepoInput.includes('/')}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-primary)] text-[var(--text-primary)] disabled:opacity-40 hover:opacity-90"
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent-primary)] text-[var(--btn-text)] disabled:opacity-40 hover:opacity-90"
               >
                 Go
               </button>
@@ -925,7 +925,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
             <button
               onClick={handleClone}
               disabled={isCloning || !cloneUrl.trim() || !cloneTarget.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--btn-text)] hover:opacity-90 disabled:opacity-40"
             >
               {isCloning ? <Loader2 size={11} className="animate-spin" /> : <FolderDown size={11} />}
               {isCloning ? 'Cloning...' : 'Clone'}
@@ -960,7 +960,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
           <button
             onClick={handleCreateBranch}
             disabled={!newBranchName.trim() || isCreatingBranch}
-            className="px-2.5 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+            className="px-2.5 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--btn-text)] hover:opacity-90 disabled:opacity-40"
           >
             {isCreatingBranch ? <Loader2 size={11} className="animate-spin" /> : 'Create'}
           </button>
@@ -995,7 +995,7 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
             <Icon size={12} />
             {label}
             {id === 'notifs' && unreadCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 bg-[var(--accent-primary)] text-[var(--text-primary)] text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
+              <span className="absolute -top-0.5 -right-0.5 bg-[var(--accent-primary)] text-[var(--btn-text)] text-[8px] w-3.5 h-3.5 rounded-full flex items-center justify-center font-bold">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -1017,13 +1017,13 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
             <div className="flex items-center gap-2 mb-2">
               <button
                 onClick={() => setPrFilter('open')}
-                className={`text-[10px] px-2 py-0.5 rounded ${prFilter === 'open' ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
+                className={`text-[10px] px-2 py-0.5 rounded ${prFilter === 'open' ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
               >
                 Open
               </button>
               <button
                 onClick={() => setPrFilter('closed')}
-                className={`text-[10px] px-2 py-0.5 rounded ${prFilter === 'closed' ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
+                className={`text-[10px] px-2 py-0.5 rounded ${prFilter === 'closed' ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
               >
                 Closed
               </button>
@@ -1062,13 +1062,13 @@ const GitHubPane: React.FC<GitHubPaneProps> = ({ rootPath }) => {
             <div className="flex items-center gap-2 mb-2">
               <button
                 onClick={() => setIssueFilter('open')}
-                className={`text-[10px] px-2 py-0.5 rounded ${issueFilter === 'open' ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
+                className={`text-[10px] px-2 py-0.5 rounded ${issueFilter === 'open' ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
               >
                 Open
               </button>
               <button
                 onClick={() => setIssueFilter('closed')}
-                className={`text-[10px] px-2 py-0.5 rounded ${issueFilter === 'closed' ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
+                className={`text-[10px] px-2 py-0.5 rounded ${issueFilter === 'closed' ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]' : 'text-[var(--text-muted)] hover:bg-white/5'}`}
               >
                 Closed
               </button>

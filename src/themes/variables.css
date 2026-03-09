@@ -16,8 +16,8 @@
   /* Text */
   --text-primary: #ffffff;
   --text-secondary: #d4d4d8;
-  --text-muted: #71717a;
-  --text-dim: #52525b;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
 
   /* Borders */
   --border-primary: #27272a;
@@ -87,8 +87,8 @@
   --bg-hover: #243554;
   --text-primary: #e2e8f0;
   --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-  --text-dim: #475569;
+  --text-muted: #8896ab;
+  --text-dim: #64748b;
   --border-primary: #1e3a5f;
   --border-secondary: rgba(96, 165, 250, 0.1);
   --accent-primary: #60a5fa;
@@ -115,8 +115,8 @@
   --bg-hover: #4c566a;
   --text-primary: #eceff4;
   --text-secondary: #d8dee9;
-  --text-muted: #7b88a1;
-  --text-dim: #616e88;
+  --text-muted: #9aa5b8;
+  --text-dim: #7b88a1;
   --border-primary: #434c5e;
   --border-secondary: rgba(136, 192, 208, 0.1);
   --accent-primary: #88c0d0;
@@ -143,8 +143,8 @@
   --bg-hover: #0d4f63;
   --text-primary: #fdf6e3;
   --text-secondary: #93a1a1;
-  --text-muted: #657b83;
-  --text-dim: #586e75;
+  --text-muted: #839496;
+  --text-dim: #657b83;
   --border-primary: #0a4050;
   --border-secondary: rgba(181, 137, 0, 0.1);
   --accent-primary: #b58900;
@@ -199,8 +199,8 @@
   --bg-hover: #4e4d42;
   --text-primary: #f8f8f2;
   --text-secondary: #cfcfc2;
-  --text-muted: #75715e;
-  --text-dim: #5c5a4f;
+  --text-muted: #9e9a82;
+  --text-dim: #75715e;
   --border-primary: #3e3d32;
   --border-secondary: rgba(249, 38, 114, 0.1);
   --accent-primary: #f92672;
@@ -227,8 +227,8 @@
   --bg-hover: #44475a;
   --text-primary: #f8f8f2;
   --text-secondary: #ccc8dc;
-  --text-muted: #6272a4;
-  --text-dim: #4d5b86;
+  --text-muted: #8994b8;
+  --text-dim: #6272a4;
   --border-primary: #44475a;
   --border-secondary: rgba(189, 147, 249, 0.1);
   --accent-primary: #bd93f9;
@@ -255,8 +255,8 @@
   --bg-hover: #45475a;
   --text-primary: #cdd6f4;
   --text-secondary: #bac2de;
-  --text-muted: #6c7086;
-  --text-dim: #585b70;
+  --text-muted: #9399b2;
+  --text-dim: #6c7086;
   --border-primary: #313244;
   --border-secondary: rgba(203, 166, 247, 0.1);
   --accent-primary: #cba6f7;
@@ -313,8 +313,8 @@
   --bg-hover: #665c54;
   --text-primary: #ebdbb2;
   --text-secondary: #d5c4a1;
-  --text-muted: #a89984;
-  --text-dim: #928374;
+  --text-muted: #bdae93;
+  --text-dim: #a89984;
   --border-primary: #504945;
   --border-secondary: rgba(254, 128, 25, 0.1);
   --accent-primary: #fe8019;
@@ -361,8 +361,8 @@
   --bg-hover: #383e4a;
   --text-primary: #abb2bf;
   --text-secondary: #9da5b4;
-  --text-muted: #636d83;
-  --text-dim: #4b5263;
+  --text-muted: #848b98;
+  --text-dim: #636d83;
   --border-primary: #3e4451;
   --border-secondary: rgba(97, 175, 239, 0.1);
   --accent-primary: #61afef;
@@ -409,8 +409,8 @@
   --bg-hover: #2f3146;
   --text-primary: #c0caf5;
   --text-secondary: #a9b1d6;
-  --text-muted: #565f89;
-  --text-dim: #414868;
+  --text-muted: #7982a9;
+  --text-dim: #565f89;
   --border-primary: #292e42;
   --border-secondary: rgba(122, 162, 247, 0.1);
   --accent-primary: #7aa2f7;
@@ -433,8 +433,8 @@
   --bg-hover: #30363d;
   --text-primary: #f0f6fc;
   --text-secondary: #c9d1d9;
-  --text-muted: #8b949e;
-  --text-dim: #6e7681;
+  --text-muted: #a8b1ba;
+  --text-dim: #8b949e;
   --border-primary: #30363d;
   --border-secondary: rgba(88, 166, 255, 0.1);
   --accent-primary: #58a6ff;
@@ -481,8 +481,8 @@
   --bg-hover: #393552;
   --text-primary: #e0def4;
   --text-secondary: #c4c0d9;
-  --text-muted: #6e6a86;
-  --text-dim: #555169;
+  --text-muted: #908ca5;
+  --text-dim: #6e6a86;
   --border-primary: #26233a;
   --border-secondary: rgba(196, 167, 231, 0.1);
   --accent-primary: #c4a7e7;
@@ -529,8 +529,8 @@
   --bg-hover: #443364;
   --text-primary: #f0e4fc;
   --text-secondary: #cbb8e0;
-  --text-muted: #7b6995;
-  --text-dim: #5c4d7a;
+  --text-muted: #9d8db3;
+  --text-dim: #7b6995;
   --border-primary: #34294f;
   --border-secondary: rgba(255, 126, 219, 0.1);
   --accent-primary: #ff7edb;
@@ -553,8 +553,8 @@
   --bg-hover: #1c212b;
   --text-primary: #bfbdb6;
   --text-secondary: #acb6bf;
-  --text-muted: #636a72;
-  --text-dim: #454b54;
+  --text-muted: #868d95;
+  --text-dim: #636a72;
   --border-primary: #1c212b;
   --border-secondary: rgba(230, 180, 80, 0.1);
   --accent-primary: #e6b450;

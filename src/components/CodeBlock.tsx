@@ -20,7 +20,7 @@ const CodeBlock: React.FC<CodeBlockProps> = ({ language, code, onApply }) => (
             {onApply && (
                 <button
                     onClick={() => onApply(code)}
-                    className="flex items-center gap-1 text-[10px] bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--text-primary)] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="flex items-center gap-1 text-[10px] bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-[var(--btn-text)] px-2 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                     <Terminal size={10} />
                     Apply

@@ -422,7 +422,7 @@ export default function RecipeWizard({
           {step === 'params' && (
             <button
               onClick={handleNext}
-              className="flex items-center gap-1 px-4 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg font-medium"
+              className="flex items-center gap-1 px-4 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-lg font-medium"
             >
               {recipe.parameters.length === 0 ? 'Preview' : 'Continue'}
               <ChevronRight size={16} />
@@ -433,7 +433,7 @@ export default function RecipeWizard({
             <button
               onClick={handleExecute}
               disabled={executing}
-              className="flex items-center gap-2 px-6 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg font-medium disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2 text-sm bg-[var(--accent-hover)] hover:bg-[var(--accent-primary)] text-[var(--btn-text)] rounded-lg font-medium disabled:opacity-50"
             >
               <Play size={16} />
               Execute Recipe

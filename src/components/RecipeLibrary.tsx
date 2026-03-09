@@ -155,7 +155,7 @@ export default function RecipeLibrary({
             onClick={() => setSelectedCategory(null)}
             className={`px-3 py-1 text-xs rounded-full transition-colors ${
               selectedCategory === null
-                ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]'
+                ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]'
                 : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -167,7 +167,7 @@ export default function RecipeLibrary({
               onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
               className={`flex items-center gap-1 px-3 py-1 text-xs rounded-full transition-colors ${
                 selectedCategory === cat
-                  ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]'
+                  ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]'
                   : 'bg-[var(--bg-tertiary)] text-[var(--text-muted)] hover:text-[var(--text-primary)]'
               }`}
             >

@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
   "appId": "com.cryonicsystems.singularity",
   "asar": true,
-  "npmRebuild": false,
+  "npmRebuild": true,
   "productName": "Singularity",
   "publish": null,
   "directories": {
@@ -16,7 +16,8 @@
   // fork() cannot execute files inside an ASAR archive, so they must be unpacked to disk.
   "asarUnpack": [
     "dist-electron/extension-host.cjs",
-    "dist-electron/vscode-shim.cjs"
+    "dist-electron/vscode-shim.cjs",
+    "node_modules/node-pty/**"
   ],
   "mac": {
     "target": [

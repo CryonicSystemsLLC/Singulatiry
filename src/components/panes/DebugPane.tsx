@@ -304,7 +304,7 @@ const DebugPane: React.FC<DebugPaneProps> = ({ rootPath }) => {
                             </select>
                             <button
                                 onClick={() => setShowConfigEditor(!showConfigEditor)}
-                                className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)]"
+                                className="p-1 rounded hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]"
                                 title="Edit Launch Configuration"
                             >
                                 <Settings size={12} />
@@ -420,8 +420,8 @@ const DebugPane: React.FC<DebugPaneProps> = ({ rootPath }) => {
             {/* ===== Debug Console ===== */}
             <div className="shrink-0 border-t border-[var(--border-secondary)]">
                 <div className="flex items-center px-2 py-1 gap-1">
-                    <Terminal size={10} className="text-[var(--text-muted)] shrink-0" />
-                    <span className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-medium">Debug Console</span>
+                    <Terminal size={10} className="text-[var(--text-secondary)] shrink-0" />
+                    <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider font-medium">Debug Console</span>
                 </div>
                 <div className="h-32 overflow-y-auto px-2 bg-[var(--bg-primary)] text-[10px] font-mono">
                     {consoleOutput.map((entry, i) => (
@@ -471,7 +471,7 @@ const VariablesPanel: React.FC<{
 }> = ({ scopes, variables, expandedScopes, expandedVars, onToggleScope, onToggleVar, isActive, isStopped }) => {
     if (!isActive) {
         return (
-            <div className="p-4 text-center text-xs text-[var(--text-muted)]">
+            <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
                 <Bug size={24} className="mx-auto mb-2 opacity-20" />
                 <p>Start a debug session to inspect variables</p>
             </div>
@@ -479,14 +479,14 @@ const VariablesPanel: React.FC<{
     }
     if (!isStopped) {
         return (
-            <div className="p-4 text-center text-xs text-[var(--text-muted)]">
+            <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
                 <Loader2 size={16} className="mx-auto mb-2 animate-spin opacity-40" />
                 <p>Running... pause execution to inspect variables</p>
             </div>
         );
     }
     if (scopes.length === 0) {
-        return <div className="p-4 text-center text-xs text-[var(--text-muted)]">No variables available</div>;
+        return <div className="p-4 text-center text-xs text-[var(--text-secondary)]">No variables available</div>;
     }
 
     return (
@@ -578,14 +578,14 @@ const WatchPanel: React.FC<{
 }> = ({ expressions, results, onAdd, onRemove, onRefresh, isStopped }) => (
     <div className="text-xs">
         <div className="flex items-center justify-between px-2 py-1 border-b border-[var(--border-secondary)]">
-            <span className="text-[var(--text-muted)]">{expressions.length} expression{expressions.length !== 1 ? 's' : ''}</span>
+            <span className="text-[var(--text-secondary)]">{expressions.length} expression{expressions.length !== 1 ? 's' : ''}</span>
             <div className="flex gap-1">
-                <button onClick={onRefresh} className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)]" title="Refresh"><RefreshCw size={10} /></button>
-                <button onClick={onAdd} className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)]" title="Add Expression"><Plus size={10} /></button>
+                <button onClick={onRefresh} className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]" title="Refresh"><RefreshCw size={10} /></button>
+                <button onClick={onAdd} className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]" title="Add Expression"><Plus size={10} /></button>
             </div>
         </div>
         {expressions.length === 0 ? (
-            <div className="p-4 text-center text-[var(--text-muted)]">
+            <div className="p-4 text-center text-[var(--text-secondary)]">
                 <Eye size={16} className="mx-auto mb-1 opacity-20" />
                 <p>Add watch expressions to monitor values</p>
             </div>
@@ -620,7 +620,7 @@ const CallStackPanel: React.FC<{
 }> = ({ frames, selectedFrame, onSelectFrame }) => {
     if (frames.length === 0) {
         return (
-            <div className="p-4 text-center text-xs text-[var(--text-muted)]">
+            <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
                 No call stack available
             </div>
         );
@@ -659,7 +659,7 @@ const BreakpointsPanel: React.FC<{
 }> = ({ breakpoints }) => {
     if (breakpoints.length === 0) {
         return (
-            <div className="p-4 text-center text-xs text-[var(--text-muted)]">
+            <div className="p-4 text-center text-xs text-[var(--text-secondary)]">
                 <Circle size={16} className="mx-auto mb-1 opacity-20" />
                 <p>No breakpoints set</p>
                 <p className="mt-1 text-[9px]">Click in the editor gutter to add breakpoints</p>
@@ -741,19 +741,19 @@ const ConfigEditor: React.FC<{
                 >
                     {editConfigs.map((c, i) => <option key={i} value={i}>{c.name}</option>)}
                 </select>
-                <button onClick={addConfig} className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-muted)]" title="Add Configuration"><Plus size={12} /></button>
-                <button onClick={() => removeConfig(editIdx)} className="p-0.5 rounded hover:bg-red-600/20 text-[var(--text-muted)]" title="Remove"><Trash2 size={12} /></button>
+                <button onClick={addConfig} className="p-0.5 rounded hover:bg-[var(--bg-hover)] text-[var(--text-secondary)]" title="Add Configuration"><Plus size={12} /></button>
+                <button onClick={() => removeConfig(editIdx)} className="p-0.5 rounded hover:bg-red-600/20 text-[var(--text-secondary)]" title="Remove"><Trash2 size={12} /></button>
             </div>
             {current && (
                 <div className="space-y-1.5">
                     <div className="flex gap-2">
                         <label className="flex-1">
-                            <span className="text-[var(--text-muted)]">Name</span>
+                            <span className="text-[var(--text-secondary)]">Name</span>
                             <input value={current.name} onChange={e => updateCurrent({ name: e.target.value })}
                                 className="w-full mt-0.5 text-xs bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)] rounded px-1.5 py-0.5" />
                         </label>
                         <label className="w-20">
-                            <span className="text-[var(--text-muted)]">Type</span>
+                            <span className="text-[var(--text-secondary)]">Type</span>
                             <select value={current.type} onChange={e => updateCurrent({ type: e.target.value as any })}
                                 className="w-full mt-0.5 text-xs bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)] rounded px-1.5 py-0.5">
                                 <option value="node">Node.js</option>
@@ -761,7 +761,7 @@ const ConfigEditor: React.FC<{
                             </select>
                         </label>
                         <label className="w-20">
-                            <span className="text-[var(--text-muted)]">Request</span>
+                            <span className="text-[var(--text-secondary)]">Request</span>
                             <select value={current.request} onChange={e => updateCurrent({ request: e.target.value as any })}
                                 className="w-full mt-0.5 text-xs bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)] rounded px-1.5 py-0.5">
                                 <option value="launch">Launch</option>
@@ -771,7 +771,7 @@ const ConfigEditor: React.FC<{
                     </div>
                     {current.request === 'launch' && (
                         <label>
-                            <span className="text-[var(--text-muted)]">Program</span>
+                            <span className="text-[var(--text-secondary)]">Program</span>
                             <input value={current.program || ''} onChange={e => updateCurrent({ program: e.target.value })}
                                 placeholder="e.g. index.js or src/main.ts"
                                 className="w-full mt-0.5 text-xs bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)] rounded px-1.5 py-0.5" />
@@ -779,13 +779,13 @@ const ConfigEditor: React.FC<{
                     )}
                     {current.request === 'attach' && (
                         <label>
-                            <span className="text-[var(--text-muted)]">Port</span>
+                            <span className="text-[var(--text-secondary)]">Port</span>
                             <input type="number" value={current.port || 9229} onChange={e => updateCurrent({ port: Number(e.target.value) })}
                                 className="w-full mt-0.5 text-xs bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-secondary)] rounded px-1.5 py-0.5" />
                         </label>
                     )}
                     <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-1 text-[var(--text-muted)]">
+                        <label className="flex items-center gap-1 text-[var(--text-secondary)]">
                             <input type="checkbox" checked={current.stopOnEntry || false} onChange={e => updateCurrent({ stopOnEntry: e.target.checked })}
                                 className="rounded" />
                             Stop on entry
@@ -794,7 +794,7 @@ const ConfigEditor: React.FC<{
                 </div>
             )}
             <div className="flex gap-1 justify-end">
-                <button onClick={onClose} className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-muted)] hover:text-[var(--text-secondary)]">
+                <button onClick={onClose} className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                     Cancel
                 </button>
                 <button onClick={() => onSave(editConfigs)} className="text-[10px] px-2 py-0.5 rounded bg-[var(--accent-primary)] text-white hover:opacity-80">

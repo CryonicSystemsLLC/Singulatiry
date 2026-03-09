@@ -60,6 +60,7 @@ function createWindow() {
     // Remove autoHideMenuBar: true to allow the custom menu to show
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
+      spellcheck: true,
     },
   })
 
@@ -200,6 +201,45 @@ function createWindow() {
 
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
+
+  // Enable spellchecker languages
+  win.webContents.session.setSpellCheckerLanguages(['en-US']);
+
+  // Right-click context menu for the entire app (with spellcheck suggestions)
+  win.webContents.on('context-menu', (_event, params) => {
+    const menuItems: MenuItemConstructorOptions[] = [];
+
+    // Spelling suggestions when a word is misspelled
+    if (params.misspelledWord) {
+      if (params.dictionarySuggestions.length > 0) {
+        for (const suggestion of params.dictionarySuggestions) {
+          menuItems.push({
+            label: suggestion,
+            click: () => win!.webContents.replaceMisspelling(suggestion),
+          });
+        }
+      } else {
+        menuItems.push({ label: 'No suggestions', enabled: false });
+      }
+      menuItems.push({ type: 'separator' });
+      menuItems.push({
+        label: 'Add to Dictionary',
+        click: () => win!.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+      });
+      menuItems.push({ type: 'separator' });
+    }
+
+    menuItems.push(
+      { role: 'cut', enabled: params.editFlags.canCut },
+      { role: 'copy', enabled: params.editFlags.canCopy },
+      { role: 'paste', enabled: params.editFlags.canPaste },
+      { type: 'separator' },
+      { role: 'selectAll', enabled: params.editFlags.canSelectAll },
+    );
+
+    const contextMenu = Menu.buildFromTemplate(menuItems);
+    contextMenu.popup();
+  });
 }
 
 // ===== IPC Handler Registration =====

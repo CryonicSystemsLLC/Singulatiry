@@ -69,7 +69,7 @@ const SearchPane: React.FC<SearchPaneProps> = ({ rootPath }) => {
                 ))}
 
                 {!isSearching && results.length === 0 && query && (
-                    <div className="text-center text-[var(--text-muted)] text-xs mt-4">No results found</div>
+                    <div className="text-center text-[var(--text-secondary)] text-xs mt-4">No results found</div>
                 )}
             </div>
         </div>

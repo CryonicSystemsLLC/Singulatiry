@@ -619,7 +619,7 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
               <button
                 onClick={() => handlePush()}
                 disabled={isPushing}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded bg-[var(--accent-primary)] text-[var(--btn-text)] hover:opacity-90 disabled:opacity-40"
               >
                 {isPushing ? <Loader2 size={11} className="animate-spin" /> : <ArrowUp size={11} />}
                 Push
@@ -660,7 +660,7 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
           <button
             onClick={createBranch}
             disabled={!newBranchName.trim()}
-            className="text-[10px] px-2 py-1 rounded bg-[var(--accent-primary)] text-[var(--text-primary)] hover:opacity-90 disabled:opacity-40"
+            className="text-[10px] px-2 py-1 rounded bg-[var(--accent-primary)] text-[var(--btn-text)] hover:opacity-90 disabled:opacity-40"
           >
             Create
           </button>
@@ -820,7 +820,7 @@ Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore
           <button
             onClick={handleCommit}
             disabled={isCommitting || !commitMessage.trim() || stagedFiles.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded-md bg-[var(--accent-primary)] text-[var(--text-primary)] hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-medium rounded-md bg-[var(--accent-primary)] text-[var(--btn-text)] hover:bg-[var(--accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             title="Commit staged changes"
           >
             {isCommitting ? (

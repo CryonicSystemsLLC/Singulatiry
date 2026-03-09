@@ -120,7 +120,7 @@ const QuickOpen: React.FC<QuickOpenProps> = ({ isOpen, onClose, files, onSelect,
                                     id={`qo-item-${index}`}
                                     className={`px-3 py-2 flex items-center gap-3 cursor-pointer text-sm ${
                                         index === selectedIndex
-                                            ? 'bg-[var(--accent-primary)] text-[var(--text-primary)]'
+                                            ? 'bg-[var(--accent-primary)] text-[var(--btn-text)]'
                                             : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
                                     }`}
                                     onClick={() => { onSelect(file); onClose(); }}

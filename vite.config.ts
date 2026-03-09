@@ -50,7 +50,7 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: ['ssh2'],
+              external: ['ssh2', 'node-pty'],
             },
           },
         },
