@@ -1,7 +1,7 @@
 {
   "name": "singularity",
   "private": true,
-  "version": "2.0.7",
+  "version": "2.0.8",
   "description": "Singularity IDE — A modern code editor with AI integration and VS Code extension support",
   "author": {
     "name": "Matt VanEvery",

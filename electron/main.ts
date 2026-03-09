@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions, shell, protocol, net } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import { readFile, stat as fsStat } from 'node:fs/promises'
+import { readFile, stat as fsStat, readdir as fsReaddir } from 'node:fs/promises'
 
 // Service handler records (already-exported from their modules)
 import { keyStorageIpcHandlers } from './services/keychain';
@@ -412,6 +412,37 @@ protocol.registerSchemesAsPrivileged([{
 app.whenReady().then(async () => {
   // Register the protocol handler for extension webview files
   const extensionsDir = path.join(app.getPath('userData'), 'extensions');
+
+  // Cache: lowercased extension ID → actual directory name on disk
+  // Needed because Chromium lowercases hostnames in standard scheme URLs,
+  // but extension directories may have mixed case (e.g., "Anthropic.claude-code")
+  const extIdDirMap = new Map<string, string>();
+  async function resolveExtDir(extId: string): Promise<string> {
+    const cached = extIdDirMap.get(extId.toLowerCase());
+    if (cached) return path.join(extensionsDir, cached, 'extension');
+    // Direct match (works on case-insensitive filesystems like Windows)
+    const directPath = path.join(extensionsDir, extId);
+    try {
+      const s = await fsStat(directPath);
+      if (s.isDirectory()) {
+        extIdDirMap.set(extId.toLowerCase(), extId);
+        return path.join(directPath, 'extension');
+      }
+    } catch {}
+    // Case-insensitive search (needed for Linux/macOS)
+    try {
+      const entries = await fsReaddir(extensionsDir);
+      for (const entry of entries) {
+        if (entry.toLowerCase() === extId.toLowerCase()) {
+          extIdDirMap.set(extId.toLowerCase(), entry);
+          return path.join(extensionsDir, entry, 'extension');
+        }
+      }
+    } catch {}
+    // Fallback to direct path
+    return path.join(extensionsDir, extId, 'extension');
+  }
+
   const mimeTypes: Record<string, string> = {
     '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript',
     '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml',
@@ -641,7 +672,7 @@ body { font-size: 15px !important; }
       // ===== Static file serving =====
       // Try direct path first, then fallback directories for extensions
       // that use relative paths from subdirectories (e.g., webview/index.html referencing ./assets/X.js)
-      const extensionBase = path.join(extensionsDir, extId, 'extension');
+      const extensionBase = await resolveExtDir(extId);
       const directPath = path.join(extensionBase, filePath);
 
       // Fallback directories to search if file not found at direct path

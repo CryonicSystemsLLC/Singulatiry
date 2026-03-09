@@ -95,9 +95,16 @@ class ExtensionHostManager {
       this.hosts.delete(key);
     }
 
-    const extensionPath = path.join(this.extensionsDir, extensionId);
+    let extensionPath = path.join(this.extensionsDir, extensionId);
     if (!existsSync(extensionPath)) {
-      throw new Error(`Extension not found: ${extensionPath}`);
+      // Case-insensitive fallback for Linux/macOS (URL hostnames get lowercased)
+      const entries = await readdir(this.extensionsDir).catch(() => [] as string[]);
+      const match = entries.find(e => e.toLowerCase() === extensionId.toLowerCase());
+      if (match) {
+        extensionPath = path.join(this.extensionsDir, match);
+      } else {
+        throw new Error(`Extension not found: ${extensionPath}`);
+      }
     }
 
     console.log(`[ExtHostMgr] Starting extension host for ${extensionId}`);
